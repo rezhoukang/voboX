@@ -595,9 +595,8 @@ public partial class MainWindow : Window
         {
             Title = "裁剪保存",
             InitialDirectory = Directory.Exists(dir) ? dir : Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-            FileName = Path.GetFileNameWithoutExtension(_current.FileName) + "_crop" + Path.GetExtension(_current.FileName),
-            Filter = _current.FileName.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase)
-                ? "MP3 音频 (*.mp3)|*.mp3" : "WAV 音频 (*.wav)|*.wav",
+            FileName = Path.GetFileNameWithoutExtension(_current.FileName) + "_crop.wav",
+            Filter = "WAV 音频 (*.wav)|*.wav",
         };
         if (dlg.ShowDialog(this) != true) return;
 
