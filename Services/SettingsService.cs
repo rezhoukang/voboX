@@ -58,4 +58,12 @@ public class SettingsService
         if (!string.IsNullOrWhiteSpace(Settings.TempboxPath)) return Settings.TempboxPath;
         return AppPaths.DefaultTempboxPath;
     }
+
+    /// <summary>获取实际生效的 voboX 根目录（空 = 默认 Box\voboX）</summary>
+    public string ResolveVoboxDir()
+        => string.IsNullOrWhiteSpace(Settings.VoboxPath) ? AppPaths.DefaultSaveBoxPath : Settings.VoboxPath.Trim();
+
+    /// <summary>获取实际生效的录音目录（空 = 默认 Box\recordBox）</summary>
+    public string ResolveRecordboxDir()
+        => string.IsNullOrWhiteSpace(Settings.RecordboxPath) ? AppPaths.RecordingsDir : Settings.RecordboxPath.Trim();
 }

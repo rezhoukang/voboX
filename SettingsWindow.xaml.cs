@@ -39,12 +39,17 @@ public partial class SettingsWindow : Window
         SortCombo.SelectedIndex = Math.Max(0, idx);
 
         // 裁剪默认路径就是 Box\cutBox：留空时也把默认路径显示在输入框里
-        CropPathBox.Text = string.IsNullOrWhiteSpace(_settings.Settings.CropSavePath)
-            ? AppPaths.DefaultCutboxPath
-            : _settings.Settings.CropSavePath;
+        // 路径框留空 = 跟随默认（相对应用位置，换电脑可移植）；悬停显示默认路径
+        CropPathBox.Text = _settings.Settings.CropSavePath;
+        CropPathBox.ToolTip = "默认：" + AppPaths.DefaultCutboxPath;
         TempboxBox.Text = _settings.Settings.TempboxPath;
+        TempboxBox.ToolTip = "默认：" + AppPaths.DefaultTempboxPath;
+        VoboxBox.Text = _settings.Settings.VoboxPath;
+        VoboxBox.ToolTip = "默认：" + AppPaths.DefaultSaveBoxPath;
+        RecordboxBox.Text = _settings.Settings.RecordboxPath;
+        RecordboxBox.ToolTip = "默认：" + AppPaths.RecordingsDir;
         AutoStartCheck.IsChecked = _settings.Settings.AutoStart;
-        SaveBoxPathText.Text = AppPaths.DefaultSaveBoxPath;
+        SaveBoxPathText.Text = _settings.ResolveVoboxDir();
     }
 
     // ================= 拷贝真实文件到 voboX =================
@@ -65,6 +70,10 @@ public partial class SettingsWindow : Window
 
     private void TempboxBrowse_Click(object sender, RoutedEventArgs e) => BrowseFolder(TempboxBox);
 
+    private void VoboxBrowse_Click(object sender, RoutedEventArgs e) => BrowseFolder(VoboxBox);
+
+    private void RecordboxBrowse_Click(object sender, RoutedEventArgs e) => BrowseFolder(RecordboxBox);
+
     private void BrowseFolder(TextBox box)
     {
         var dlg = new Microsoft.Win32.OpenFolderDialog { Title = "选择文件夹" };
@@ -81,6 +90,14 @@ public partial class SettingsWindow : Window
     private void TempboxOpen_Click(object sender, RoutedEventArgs e) =>
         OpenInExplorer(string.IsNullOrWhiteSpace(TempboxBox.Text)
             ? AppPaths.DefaultTempboxPath : TempboxBox.Text.Trim());
+
+    private void VoboxOpen_Click(object sender, RoutedEventArgs e) =>
+        OpenInExplorer(string.IsNullOrWhiteSpace(VoboxBox.Text)
+            ? _settings.ResolveVoboxDir() : VoboxBox.Text.Trim());
+
+    private void RecordboxOpen_Click(object sender, RoutedEventArgs e) =>
+        OpenInExplorer(string.IsNullOrWhiteSpace(RecordboxBox.Text)
+            ? _settings.ResolveRecordboxDir() : RecordboxBox.Text.Trim());
 
     private static void OpenInExplorer(string path)
     {
@@ -102,6 +119,8 @@ public partial class SettingsWindow : Window
             _settings.Settings.SortRule = opt.Key;
         _settings.Settings.CropSavePath = CropPathBox.Text.Trim();
         _settings.Settings.TempboxPath = TempboxBox.Text.Trim();
+        _settings.Settings.VoboxPath = VoboxBox.Text.Trim();
+        _settings.Settings.RecordboxPath = RecordboxBox.Text.Trim();
         _settings.Settings.AutoStart = AutoStartCheck.IsChecked == true;
         _settings.Save();
         DialogResult = true;

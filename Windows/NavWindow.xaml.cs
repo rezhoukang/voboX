@@ -24,10 +24,29 @@ public partial class NavWindow : Window
         InitializeComponent();
     }
 
-    /// <summary>重新加载树，默认选中「未分类」</summary>
+    /// <summary>常驻「Record」对应的录音目录（可配置）</summary>
+    public string RecordDir { get; set; } = AppPaths.RecordingsDir;
+
+    /// <summary>重新加载树：顶部常驻「Record」（录音），默认选中「未分类」</summary>
     public void LoadFolderTree()
     {
         FolderTree.Items.Clear();
+
+        // 常驻根目录：Record（录音目录），置于最上
+        var recordHeader = new TextBlock
+        {
+            Text = "Record",
+            Foreground = (Brush)FindResource("TextPrimary"),
+            VerticalAlignment = VerticalAlignment.Center,
+            ToolTip = "录音",
+        };
+        FolderTree.Items.Add(new TreeViewItem
+        {
+            Header = recordHeader,
+            Tag = RecordDir,
+            Style = (Style)FindResource("NavTreeItemStyle"),
+        });
+
         foreach (var node in FolderService.GetFolderTree())
             FolderTree.Items.Add(BuildTreeItem(node));
         SelectFolder(FolderService.Uncategorized);
@@ -53,7 +72,13 @@ public partial class NavWindow : Window
             MaxWidth = 120,
             ToolTip = node.Name,
         };
-        var item = new TreeViewItem { Header = header, Tag = node.Path };
+        var item = new TreeViewItem
+        {
+            Header = header,
+            Tag = node.Path,
+            IsExpanded = true, // 默认展开，新建后不会“缩起来”
+            Style = (Style)FindResource("NavTreeItemStyle"), // 手动指定样式，保证子文件夹也有悬浮/选中效果
+        };
         foreach (var child in node.Children)
             item.Items.Add(BuildTreeItem(child));
         return item;
@@ -75,7 +100,7 @@ public partial class NavWindow : Window
     private void FolderTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
     {
         if (FolderTree.SelectedItem is TreeViewItem item && item.Tag is string path)
-            FolderSelected?.Invoke(Path.GetRelativePath(FolderService.Root, path));
+            FolderSelected?.Invoke(path); // 完整路径（Record=录音目录 / voboX 内文件夹）
     }
 
     // ================= 右键：新建子 / 同级 / 删除 =================
@@ -85,11 +110,11 @@ public partial class NavWindow : Window
         var selPath = (FolderTree.SelectedItem as TreeViewItem)?.Tag as string;
         var menu = new ContextMenu();
 
-        var addChild = new MenuItem { Header = "新建子文件夹…" };
+        var addChild = new MenuItem { Header = "新建子文件夹" };
         addChild.Click += (s, _) => CreateFolderUnder(selPath ?? FolderService.Root);
         menu.Items.Add(addChild);
 
-        var addSibling = new MenuItem { Header = "新建同级文件夹…" };
+        var addSibling = new MenuItem { Header = "新建同级文件夹" };
         addSibling.Click += (s, _) =>
             CreateFolderUnder(selPath is null ? FolderService.Root
                 : Path.GetDirectoryName(selPath) ?? FolderService.Root);
@@ -138,6 +163,7 @@ public partial class NavWindow : Window
                 Directory.CreateDirectory(dir);
                 FolderService.EnsureFolderFiles(dir); // 每个新文件夹自带 log / inLog 文件
                 LoadFolderTree();
+                SelectFolder(Path.GetRelativePath(FolderService.Root, dir)); // 选中新建的文件夹
                 FolderChanged?.Invoke();
             }
             catch { }

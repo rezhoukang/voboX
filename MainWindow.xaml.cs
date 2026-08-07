@@ -24,7 +24,7 @@ public partial class MainWindow : Window
     private readonly List<AudioItem> _allItems = new();
     private AudioItem? _current;
     private AudioItem? _playingItem;
-    private string _currentFolder = FolderService.Uncategorized; // 当前文件夹（相对 voboX 根）
+    private string _currentFolder = Path.Combine(FolderService.Root, FolderService.Uncategorized); // 当前文件夹（完整路径）
     private bool _navExpanded; // 左侧导航悬浮窗是否展开（默认收起）
     private NavWindow? _navWindow; // 左侧导航悬浮窗（铺在主窗口左侧，随主窗口移动）
     private NavButtonWindow? _navButton; // 展开/收起按钮悬浮窗（随状态换位换图标）
@@ -50,6 +50,7 @@ public partial class MainWindow : Window
         Topmost = _settings.Settings.AlwaysOnTop;
         UpdatePinVisual();
         ApplyAutoStart(_settings.Settings.AutoStart);
+        FolderService.Root = _settings.ResolveVoboxDir();
         FolderService.EnsureStructure();
         ReloadSamples();
         // Owner 要求窗口已显示，故按钮悬浮窗等窗口 Loaded 后再创建
@@ -95,18 +96,18 @@ public partial class MainWindow : Window
     private void EnsureNavWindow()
     {
         if (_navWindow is not null) return;
-        _navWindow = new NavWindow { Owner = this };
-        _navWindow.FolderSelected += rel =>
+        _navWindow = new NavWindow { Owner = this, RecordDir = _settings.ResolveRecordboxDir() };
+        _navWindow.FolderSelected += path =>
         {
-            _currentFolder = rel;
+            _currentFolder = path;
             ReloadSamples();
         };
         _navWindow.FolderChanged += () =>
         {
             // 若当前文件夹被删，回退到「未分类」并同步悬浮窗选中
-            if (!Directory.Exists(Path.Combine(FolderService.Root, _currentFolder)))
+            if (!Directory.Exists(_currentFolder))
             {
-                _currentFolder = FolderService.Uncategorized;
+                _currentFolder = Path.Combine(FolderService.Root, FolderService.Uncategorized);
                 _navWindow.SelectFolder(FolderService.Uncategorized);
             }
             ReloadSamples();
@@ -114,16 +115,19 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// 让导航窗铺在主窗口左侧（高度到搜索框高度）、按钮窗贴在对应位置：
+    /// 让导航窗铺在主窗口左侧、按钮窗贴在对应位置：
+    /// 导航窗顶部对齐窗口内搜索框、底部与窗口齐平（高 = 搜索框到窗口底部）；
     /// 收起态按钮在主窗口左侧外（左箭头=展开）；展开态按钮移到导航栏左侧（右箭头=收起）。
     /// </summary>
+    private const double NavTopOffset = 92; // 顶栏 42 + 内容区边距 12 + 搜索框高度
+
     private void UpdateNavPositions()
     {
         if (_navWindow is not null && _navExpanded)
         {
             _navWindow.Left = Left - _navWindow.Width;
-            _navWindow.Top = Top;
-            _navWindow.Height = 96; // 矮：顶栏到搜索框高度
+            _navWindow.Top = Top + NavTopOffset;          // 顶部到搜索框高度
+            _navWindow.Height = Height - NavTopOffset - 32; // 底部再上移，留白更多
         }
         if (_navButton is not null)
         {
@@ -139,7 +143,7 @@ public partial class MainWindow : Window
     private void ReloadSamples()
     {
         var keyword = SearchBox.Text.Trim();
-        var items = FolderService.GetFolderItems(Path.Combine(FolderService.Root, _currentFolder));
+        var items = FolderService.GetFolderItems(_currentFolder);
         _allItems.Clear();
         _allItems.AddRange(items);
 
@@ -149,7 +153,7 @@ public partial class MainWindow : Window
 
         // 必须赋新实例：ItemsSource 引用相同会被 WPF 视为无变化，列表不会刷新
         FileList.ItemsSource = visible.ToList();
-        FileCountText.Text = $"{_currentFolder}（{visible.Count}）";
+        FileCountText.Text = $"{Path.GetFileName(_currentFolder.TrimEnd(Path.DirectorySeparatorChar))}（{visible.Count}）";
         SelectedCountText.Text = "已选择 0 个文件";
         UpdateSelectAllState();
     }
@@ -187,7 +191,7 @@ public partial class MainWindow : Window
         var dlg = new Microsoft.Win32.OpenFileDialog
         {
             Title = "导入音频文件",
-            Filter = "音频文件 (*.mp3;*.wav)|*.mp3;*.wav",
+            Filter = "音频文件 (*.wav)|*.wav",
             Multiselect = true,
         };
         if (dlg.ShowDialog(this) == true)
@@ -290,7 +294,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var path = Path.Combine(AppPaths.RecordingsDir, $"{DateTime.Now:yyyyMMdd_HHmmss}.wav");
+        var path = Path.Combine(_settings.ResolveRecordboxDir(), $"{DateTime.Now:yyyyMMdd_HHmmss}.wav");
         try
         {
             _recorder.Start(path, _settings.Settings.RecordDeviceIndex);
@@ -321,6 +325,16 @@ public partial class MainWindow : Window
         ApplyAutoStart(_settings.Settings.AutoStart);
         Topmost = _settings.Settings.AlwaysOnTop;
         UpdatePinVisual();
+        // 应用可能变更的路径（voboX / recordBox）
+        FolderService.Root = _settings.ResolveVoboxDir();
+        FolderService.EnsureStructure();
+        if (_navWindow is not null)
+        {
+            _navWindow.RecordDir = _settings.ResolveRecordboxDir();
+            if (_navExpanded) _navWindow.LoadFolderTree();
+        }
+        if (!Directory.Exists(_currentFolder))
+            _currentFolder = Path.Combine(FolderService.Root, FolderService.Uncategorized);
         ReloadSamples();
     }
 

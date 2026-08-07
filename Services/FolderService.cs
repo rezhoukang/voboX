@@ -15,8 +15,8 @@ public static class FolderService
 {
     public const string Uncategorized = "未分类";
 
-    /// <summary>树根目录（Box\voboX）</summary>
-    public static string Root => AppPaths.DefaultSaveBoxPath;
+    /// <summary>树根目录（Box\voboX，可经设置修改）</summary>
+    public static string Root { get; set; } = AppPaths.DefaultSaveBoxPath;
 
     /// <summary>文件夹下的外部索引 log 文件</summary>
     public static string LogFile(string folderPath) => Path.Combine(folderPath, "log");
@@ -84,27 +84,25 @@ public static class FolderService
     // ================= log 索引（每个文件夹一个 log 文件） =================
 
     /// <summary>把外部文件登记到指定文件夹的 log 文件（每行一个路径）</summary>
-    public static void AddIndexLog(string folderName, string sourcePath)
+    public static void AddIndexLog(string folderDir, string sourcePath)
     {
-        var dir = Path.Combine(Root, folderName);
-        Directory.CreateDirectory(dir);
-        var log = LogFile(dir);
+        Directory.CreateDirectory(folderDir);
+        var log = LogFile(folderDir);
         var lines = File.Exists(log) ? File.ReadAllLines(log).ToList() : new List<string>();
         if (!lines.Contains(sourcePath, StringComparer.OrdinalIgnoreCase))
             lines.Add(sourcePath);
         File.WriteAllLines(log, lines, new System.Text.UTF8Encoding(false));
     }
 
-    /// <summary>移除条目：voboX 内物理文件直接删文件；外部索引从 log 文件移除该行</summary>
-    public static void RemoveEntry(string folderName, AudioItem item)
+    /// <summary>移除条目：目录内物理文件直接删文件；外部索引从 log 文件移除该行</summary>
+    public static void RemoveEntry(string folderDir, AudioItem item)
     {
-        var dir = Path.Combine(Root, folderName);
-        if (IsInside(item.FilePath, dir))
+        if (IsInside(item.FilePath, folderDir))
         {
             if (File.Exists(item.FilePath)) File.Delete(item.FilePath);
             return;
         }
-        var log = LogFile(dir);
+        var log = LogFile(folderDir);
         if (!File.Exists(log)) return;
         var lines = File.ReadAllLines(log)
             .Where(l => !l.Equals(item.FilePath, StringComparison.OrdinalIgnoreCase))
@@ -207,7 +205,7 @@ public static class FolderService
     private static bool IsAudio(string path)
     {
         var ext = Path.GetExtension(path).ToLowerInvariant();
-        return ext == ".wav" || ext == ".mp3";
+        return ext == ".wav"; // 仅支持 WAV
     }
 
     /// <summary>判断文件是否位于某目录（含子目录）内</summary>

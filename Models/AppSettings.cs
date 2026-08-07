@@ -18,6 +18,12 @@ public class AppSettings
     /// <summary>tempBox 目录（空 = 默认）</summary>
     public string TempboxPath { get; set; } = "";
 
+    /// <summary>voboX 根目录（空 = 默认 Box\voboX）</summary>
+    public string VoboxPath { get; set; } = "";
+
+    /// <summary>录音目录（空 = 默认 Box\recordBox）</summary>
+    public string RecordboxPath { get; set; } = "";
+
     /// <summary>窗口始终置顶（钉子按钮，持久化）</summary>
     public bool AlwaysOnTop { get; set; }
 }

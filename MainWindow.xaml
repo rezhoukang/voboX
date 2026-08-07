@@ -179,7 +179,7 @@
                         </ListBox>
 
                         <!-- 空状态提示 -->
-                        <TextBlock Text="此文件夹暂无音频&#10;点击「导入」或直接拖入 MP3 / WAV"
+                        <TextBlock Text="此文件夹暂无音频&#10;点击「导入」或直接拖入 WAV"
                                    HorizontalAlignment="Center" VerticalAlignment="Center"
                                    Foreground="{StaticResource TextMuted}" FontSize="13"
                                    TextAlignment="Center" IsHitTestVisible="False" LineHeight="22">
