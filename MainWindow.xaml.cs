@@ -340,17 +340,14 @@ public partial class MainWindow : Window
         {
             _recorder.Stop();
             ResetRecordButton();
-            if (_recorder.OutputPath is not null && File.Exists(_recorder.OutputPath))
-            {
-                try
-                {
-                    // 录音登记为 log 索引（当前文件夹），不复制
-                    FolderService.AddIndexLog(_currentFolder, _recorder.OutputPath);
-                    ReloadSamples();
-                }
-                catch { }
-            }
-            MessageBox.Show(this, "录音已停止并加入仓库。", "voboX");
+            // 录音只保存在录音目录（recordBox / 自定义），不再登记到当前文件夹的 log，
+            // 避免同一录音在“录音目录 + 当前文件夹”两处显示。
+            // 当前文件夹若就是录音目录，刷新后直接可见。
+            ReloadSamples();
+            var saved = _recorder.OutputPath;
+            MessageBox.Show(this, File.Exists(saved)
+                ? $"录音已保存：\n{saved}\n\n可在左侧导航「recordBox」中查看。"
+                : "录音已停止（未保存到文件）。", "voboX");
             return;
         }
 
@@ -712,7 +709,7 @@ public partial class MainWindow : Window
         {
             Title = "裁剪保存",
             InitialDirectory = Directory.Exists(dir) ? dir : Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-            FileName = Path.GetFileNameWithoutExtension(_current.FileName) + "_crop.wav",
+            FileName = $"{Path.GetFileNameWithoutExtension(_current.FileName)}_cut_{DateTime.Now:yyyyMMdd_HHmmss}.wav",
             Filter = "WAV 音频 (*.wav)|*.wav",
         };
         if (dlg.ShowDialog(this) != true) return;
