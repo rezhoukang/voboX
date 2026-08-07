@@ -7,7 +7,7 @@
         mc:Ignorable="d"
         Title="voboX"
         Width="420" Height="780"
-        MinWidth="360" MinHeight="560"
+        MinWidth="400" MinHeight="560"
         WindowStyle="None"
         Background="{StaticResource WindowBg}"
         FontFamily="Microsoft YaHei UI"

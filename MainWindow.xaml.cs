@@ -1,4 +1,5 @@
 ﻿using System.IO;
+using System.Runtime.Versioning;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -774,6 +775,8 @@ public partial class MainWindow : Window
 
     // ================= 设置 / 自启 / 清理 =================
 
+    /// <summary>开机自启：写 / 删 HKCU Run 键（仅 Windows）</summary>
+    [SupportedOSPlatform("windows")]
     private void ApplyAutoStart(bool enable)
     {
         try
