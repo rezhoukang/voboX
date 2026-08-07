@@ -136,12 +136,14 @@
             </Grid.RowDefinitions>
 
             <!-- 标题栏 -->
-            <Grid Grid.Row="0" Background="{StaticResource PanelBg}">
-                <TextBlock Text="设置" FontSize="13" FontWeight="SemiBold" Margin="14,0,0,0"
-                           VerticalAlignment="Center"/>
-                <Button Style="{StaticResource WinCtrlButtonStyle}" Tag="&#xE8BB;"
-                        HorizontalAlignment="Right" Click="Close_Click"/>
-            </Grid>
+            <Border Grid.Row="0" Background="{StaticResource PanelBg}">
+                <Grid>
+                    <TextBlock Text="设置" FontSize="13" FontWeight="SemiBold" Margin="14,0,0,0"
+                               VerticalAlignment="Center"/>
+                    <Button Style="{StaticResource WinCtrlButtonStyle}" Tag="&#xE8BB;"
+                            HorizontalAlignment="Right" Click="Close_Click"/>
+                </Grid>
+            </Border>
 
             <!-- 内容 -->
             <StackPanel Grid.Row="1" Margin="16,14,16,16">

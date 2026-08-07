@@ -28,6 +28,7 @@ public partial class MainWindow : Window
     private bool _navExpanded; // 左侧导航悬浮窗是否展开（默认收起）
     private NavWindow? _navWindow; // 左侧导航悬浮窗（铺在主窗口左侧，随主窗口移动）
     private NavButtonWindow? _navButton; // 展开/收起按钮悬浮窗（随状态换位换图标）
+    private NavButtonWindow? _navRefresh; // 刷新按钮悬浮窗（导航栏底部）
     private Point _mouseDownPos;
     private ListBoxItem? _dragItem;
     private bool _suppressDragClick;   // 右键菜单弹出后，忽略下一次左键拖拽（防误复制）
@@ -87,9 +88,30 @@ public partial class MainWindow : Window
         _navButton = new NavButtonWindow { Owner = this, ShowActivated = false };
         _navButton.Clicked += ToggleNav;
         _navButton.Show();
+
+        // 刷新按钮：导航栏底部、左右居中；高宽与收起按钮反转（横长条）
+        _navRefresh = new NavButtonWindow
+        {
+            Owner = this,
+            ShowActivated = false,
+            Width = 48,   // 收起按钮 22x48 → 反转 48x22
+            Height = 22,
+        };
+        _navRefresh.Icon = "\uE72C"; // Refresh 图标
+        _navRefresh.Clicked += RefreshNav;
+        _navRefresh.Hide();
+
         // 主窗口移动 / 缩放时，导航窗与按钮窗一起贴紧
         LocationChanged += (s, e) => UpdateNavPositions();
         SizeChanged += (s, e) => UpdateNavPositions();
+    }
+
+    /// <summary>刷新：重新加载导航树 + 当前文件夹列表</summary>
+    private void RefreshNav()
+    {
+        if (_navWindow is not null && _navExpanded)
+            _navWindow.LoadFolderTree();
+        ReloadSamples();
     }
 
     /// <summary>创建导航悬浮窗（矮高度：到搜索框高度）并挂钩事件</summary>
@@ -136,6 +158,22 @@ public partial class MainWindow : Window
                 ? Left - 200 - _navButton.Width   // 导航栏左边（收起按钮）
                 : Left - _navButton.Width;         // 主窗口左侧外（展开按钮）
             _navButton.Top = Top + (Height - _navButton.Height) / 2; // 垂直居中
+        }
+        // 刷新按钮：仅展开时显示，位于导航栏底部、左右居中
+        if (_navRefresh is not null)
+        {
+            if (_navExpanded && _navWindow is not null)
+            {
+                var navBottom = Top + NavTopOffset + (Height - NavTopOffset - 32);
+                var navLeft = Left - 200;
+                _navRefresh.Left = navLeft + (200 - _navRefresh.Width) / 2; // 导航栏内左右居中
+                _navRefresh.Top = navBottom + 8;                           // 导航栏底部下方
+                _navRefresh.Show();
+            }
+            else
+            {
+                _navRefresh.Hide();
+            }
         }
     }
 

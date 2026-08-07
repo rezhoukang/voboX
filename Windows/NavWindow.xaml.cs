@@ -1,7 +1,10 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using voboX.Services;
 
 namespace voboX.Windows;
@@ -22,6 +25,45 @@ public partial class NavWindow : Window
     public NavWindow()
     {
         InitializeComponent();
+        // 滚动条：滚动时显示，停止后自动隐藏
+        _barTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(600) };
+        _barTimer.Tick += (s, e) =>
+        {
+            _barTimer.Stop();
+            if (_vBar is not null) _vBar.Opacity = 0;
+        };
+        Loaded += (s, e) => FindTreeScrollParts();
+    }
+
+    private ScrollViewer? _treeScroller;
+    private ScrollBar? _vBar;
+    private readonly DispatcherTimer _barTimer;
+
+    /// <summary>找到 TreeView 内部 ScrollViewer，滚动时短暂显示滚动条</summary>
+    private void FindTreeScrollParts()
+    {
+        _treeScroller = FindDescendant<ScrollViewer>(FolderTree);
+        if (_treeScroller is null) return;
+        _treeScroller.ScrollChanged += (s, e) =>
+        {
+            _vBar ??= FindDescendant<ScrollBar>(_treeScroller);
+            if (_vBar is null) return;
+            _vBar.Opacity = 1;
+            _barTimer.Stop();
+            _barTimer.Start();
+        };
+    }
+
+    private static T? FindDescendant<T>(DependencyObject root) where T : DependencyObject
+    {
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is T t) return t;
+            var r = FindDescendant<T>(child);
+            if (r is not null) return r;
+        }
+        return null;
     }
 
     /// <summary>常驻「Record」对应的录音目录（可配置）</summary>
@@ -35,7 +77,7 @@ public partial class NavWindow : Window
         // 常驻根目录：Record（录音目录），置于最上
         var recordHeader = new TextBlock
         {
-            Text = "Record",
+            Text = "recordBox",
             Foreground = (Brush)FindResource("TextPrimary"),
             VerticalAlignment = VerticalAlignment.Center,
             ToolTip = "录音",
@@ -107,7 +149,14 @@ public partial class NavWindow : Window
 
     private void FolderTree_ContextMenuOpening(object sender, ContextMenuEventArgs e)
     {
-        var selPath = (FolderTree.SelectedItem as TreeViewItem)?.Tag as string;
+        // 右键针对鼠标悬停的文件夹，而非当前选中项；空白处不弹菜单
+        var hitItem = GetTreeItemAtMouse();
+        if (hitItem is null)
+        {
+            e.Handled = true;
+            return;
+        }
+        var selPath = hitItem.Tag as string;
         var menu = new ContextMenu();
 
         var addChild = new MenuItem { Header = "新建子文件夹" };
@@ -144,6 +193,17 @@ public partial class NavWindow : Window
 
         menu.IsOpen = true;
         e.Handled = true;
+    }
+
+    /// <summary>按鼠标位置命中对应的树节点（右键针对的是鼠标下的文件夹）</summary>
+    private TreeViewItem? GetTreeItemAtMouse()
+    {
+        var pos = Mouse.GetPosition(FolderTree);
+        var hit = VisualTreeHelper.HitTest(FolderTree, pos);
+        var dep = hit?.VisualHit;
+        while (dep is not null and not TreeViewItem)
+            dep = VisualTreeHelper.GetParent(dep);
+        return dep as TreeViewItem;
     }
 
     private void CreateFolderUnder(string parentDir)
