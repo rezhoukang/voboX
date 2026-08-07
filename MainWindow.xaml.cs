@@ -44,6 +44,8 @@ public partial class MainWindow : Window
         Waveform.SelectionChanged += OnSelectionChanged;
 
         FileList.ContextMenu = _fileMenu; // 复用同一个菜单实例，避免右键菜单闪烁
+        Topmost = _settings.Settings.AlwaysOnTop;
+        UpdatePinVisual();
         ApplyAutoStart(_settings.Settings.AutoStart);
         LoadGroups();
         ReloadSamples();

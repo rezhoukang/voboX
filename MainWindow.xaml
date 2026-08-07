@@ -66,7 +66,7 @@
                 <!-- 右上：设置 / 钉子 / 最小化 / 关闭 -->
                 <StackPanel Grid.Column="3" Orientation="Horizontal">
                     <Button x:Name="SettingsButton" Style="{StaticResource WinCtrlButtonStyle}" Tag="&#xE713;" Click="Settings_Click"/>
-                    <Button x:Name="PinButton" Style="{StaticResource WinCtrlButtonStyle}" Tag="&#xE718;"
+                    <Button x:Name="PinButton" Style="{StaticResource WinCtrlButtonStyle}" Tag="&#xE77A;"
                             Click="Pin_Click" MouseEnter="PinButton_MouseEnter" MouseLeave="PinButton_MouseLeave"/>
                     <Button Style="{StaticResource WinCtrlButtonStyle}" Tag="&#xE921;" Click="Minimize_Click"/>
                     <Button Style="{StaticResource CloseButtonStyle}" Tag="&#xE8BB;" Click="Close_Click"/>
