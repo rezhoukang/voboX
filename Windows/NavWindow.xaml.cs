@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -224,30 +225,36 @@ public partial class NavWindow : Window
         }
         var selPath = hitItem.Tag as string;
 
-        // recordBox / cutBox 什么都不允许：右键也不弹菜单
+        var menu = new ContextMenu();
+
+        // recordBox / cutBox：只允许「在文件夹中打开」
         if (selPath is not null &&
             (selPath.Equals(RecordDir, StringComparison.OrdinalIgnoreCase) ||
              selPath.Equals(CutDir, StringComparison.OrdinalIgnoreCase)))
         {
+            AddOpenInExplorer(menu, selPath);
+            menu.IsOpen = true;
             e.Handled = true;
             return;
         }
 
         var isRoot = selPath is not null && selPath.Equals(FolderService.Root, StringComparison.OrdinalIgnoreCase);
-        var menu = new ContextMenu();
-
         if (isRoot)
         {
-            // voboX 只允许新建子文件夹（未分类等都在它底下）
+            // voboX 根：新建子文件夹 + 在文件夹中打开
             var addChild = new MenuItem { Header = "新建子文件夹" };
             addChild.Click += (s, _) => CreateFolderUnder(FolderService.Root);
             menu.Items.Add(addChild);
+            AddOpenInExplorer(menu, selPath!);
         }
         else
         {
             var addChild = new MenuItem { Header = "新建子文件夹" };
             addChild.Click += (s, _) => CreateFolderUnder(selPath ?? FolderService.Root);
             menu.Items.Add(addChild);
+
+            // 在资源管理器中打开该文件夹（未分类也有此选项）
+            AddOpenInExplorer(menu, selPath!);
 
             var selName = Path.GetFileName(selPath!.TrimEnd(Path.DirectorySeparatorChar));
             if (selName != FolderService.Uncategorized)
@@ -272,6 +279,17 @@ public partial class NavWindow : Window
 
         menu.IsOpen = true;
         e.Handled = true;
+    }
+
+    /// <summary>往菜单追加「在文件夹中打开」项（资源管理器打开该文件夹）</summary>
+    private static void AddOpenInExplorer(ContextMenu menu, string path)
+    {
+        var open = new MenuItem { Header = "在文件夹中打开" };
+        open.Click += (s, _) =>
+        {
+            try { Process.Start("explorer.exe", $"\"{path}\""); } catch { }
+        };
+        menu.Items.Add(open);
     }
 
     /// <summary>按鼠标位置命中对应的树节点（右键针对的是鼠标下的文件夹）</summary>
