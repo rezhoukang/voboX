@@ -1,0 +1,27 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "voboX: 运行",
+            "type": "shell",
+            "command": "dotnet run --project voboX.csproj",
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "clear": true
+            }
+        },
+        {
+            "label": "voboX: 构建",
+            "type": "shell",
+            "command": "dotnet build",
+            "problemMatcher": "$msCompile",
+            "group": "build"
+        }
+    ]
+}
