@@ -134,6 +134,8 @@ public partial class MainWindow : Window
             }
             ReloadSamples();
         };
+        // 拖放文件/文件夹到树中某节点 → 导入到该文件夹（保留外层目录结构）
+        _navWindow.FolderDropped += (folder, files) => ImportPaths(files, folder);
     }
 
     /// <summary>
@@ -238,7 +240,7 @@ public partial class MainWindow : Window
             Multiselect = true,
         };
         if (dlg.ShowDialog(this) == true)
-            ImportPaths(dlg.FileNames);
+            ImportPaths(dlg.FileNames, _currentFolder);
     }
 
     private void Window_DragOver(object sender, DragEventArgs e)
@@ -251,45 +253,60 @@ public partial class MainWindow : Window
     private void Window_Drop(object sender, DragEventArgs e)
     {
         if (e.Data.GetData(DataFormats.FileDrop) is string[] paths && paths.Length > 0)
-            ImportPaths(paths);
+            ImportPaths(paths, _currentFolder);
     }
 
-    private void ImportPaths(IEnumerable<string> paths)
+    /// <summary>导入到指定文件夹：目录镜像时保留外层文件夹名；文件登记 log</summary>
+    private void ImportPaths(IEnumerable<string> paths, string targetFolder)
     {
         var tempboxDir = _settings.ResolveTempboxDir();
-        var files = new List<string>();
-        foreach (var p in paths)
+        int added = 0;
+        foreach (var p in paths.Distinct(StringComparer.OrdinalIgnoreCase))
         {
             if (Directory.Exists(p))
             {
-                files.AddRange(Directory.EnumerateFiles(p, "*.*", SearchOption.AllDirectories)
-                    .Where(IsAudioFile));
+                // 目录：在目标下保留外层文件夹名并镜像其子目录结构，音频登记 log
+                added += ImportDirectory(p, targetFolder, tempboxDir);
             }
-            else if (File.Exists(p) && IsAudioFile(p))
+            else if (File.Exists(p) && IsAudioFile(p) && !IsInsideDirectory(p, tempboxDir))
             {
-                files.Add(p);
-            }
-        }
-
-        // 跳过 tempBox 内的文件：拖出后误拖回本窗口时，不再把临时副本重新导入列表
-        files = files.Where(f => !IsInsideDirectory(f, tempboxDir)).ToList();
-
-        int added = 0;
-        foreach (var f in files.Distinct(StringComparer.OrdinalIgnoreCase))
-        {
-            try
-            {
-                // 只生成 log 索引登记到当前文件夹，不复制物理文件
-                FolderService.AddIndexLog(_currentFolder, f);
-                added++;
-            }
-            catch
-            {
-                // 损坏或不支持的音频跳过
+                try
+                {
+                    FolderService.AddIndexLog(targetFolder, p);
+                    added++;
+                }
+                catch { }
             }
         }
         ReloadSamples();
+        // 树里出现镜像出的子文件夹
+        if (_navWindow is not null && _navExpanded)
+            _navWindow.LoadFolderTree();
         FileCountText.Text = added > 0 ? $"已登记 {added} 个文件" : "未发现可导入的音频";
+    }
+
+    /// <summary>
+    /// 导入目录：在 targetFolder 下创建同名的外层文件夹（保留 A/B 形式），
+    /// 再按相对结构镜像其子目录，每个音频登记 log（不复制物理文件）。
+    /// </summary>
+    private static int ImportDirectory(string sourceDir, string targetFolder, string tempboxDir)
+    {
+        int n = 0;
+        var outer = Path.Combine(targetFolder, Path.GetFileName(sourceDir.TrimEnd(Path.DirectorySeparatorChar)));
+        foreach (var file in Directory.EnumerateFiles(sourceDir, "*.*", SearchOption.AllDirectories))
+        {
+            if (!IsAudioFile(file) || IsInsideDirectory(file, tempboxDir)) continue;
+            // 相对 sourceDir 的子目录（空 = 在外层文件夹下）
+            var relDir = Path.GetRelativePath(sourceDir, Path.GetDirectoryName(file) ?? sourceDir);
+            var destDir = string.IsNullOrEmpty(relDir) ? outer : Path.Combine(outer, relDir);
+            try
+            {
+                FolderService.AddIndexLog(destDir, file); // 自动创建 destDir 及其 log
+                n++;
+            }
+            catch { }
+        }
+        return n;
     }
 
     private static bool IsAudioFile(string path)

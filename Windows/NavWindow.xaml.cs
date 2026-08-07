@@ -22,9 +22,16 @@ public partial class NavWindow : Window
     /// <summary>树结构变化（新建 / 删除文件夹）</summary>
     public event Action? FolderChanged;
 
+    /// <summary>文件/文件夹拖放到某节点（参数：目标文件夹完整路径, 拖入路径）</summary>
+    public event Action<string, string[]>? FolderDropped;
+
     public NavWindow()
     {
         InitializeComponent();
+        // 支持把文件/文件夹拖到树中指定节点导入
+        FolderTree.AllowDrop = true;
+        FolderTree.DragOver += FolderTree_DragOver;
+        FolderTree.Drop += FolderTree_Drop;
         // 滚动条：滚动时显示，停止后自动隐藏
         _barTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(600) };
         _barTimer.Tick += (s, e) =>
@@ -66,16 +73,19 @@ public partial class NavWindow : Window
         return null;
     }
 
-    /// <summary>常驻「Record」对应的录音目录（可配置）</summary>
+    /// <summary>常驻「recordBox」对应的录音目录（可配置）</summary>
     public string RecordDir { get; set; } = AppPaths.RecordingsDir;
 
-    /// <summary>重新加载树：顶部常驻「recordBox」（录音），默认选中「未分类」</summary>
+    /// <summary>常驻「cutBox」对应的裁剪保存目录</summary>
+    public string CutDir { get; set; } = AppPaths.DefaultCutboxPath;
+
+    /// <summary>重新加载树：recordBox 最顶，voboX 其次（未分类等都在 voboX 底下）</summary>
     public void LoadFolderTree()
     {
         FolderService.EnsureUncategorized(); // 未分类被删后自动恢复
         FolderTree.Items.Clear();
 
-        // 常驻根目录：Record（录音目录），置于最上
+        // 最顶：recordBox（录音目录；右键不允许，什么都不允许）
         var recordHeader = new TextBlock
         {
             Text = "recordBox",
@@ -90,8 +100,40 @@ public partial class NavWindow : Window
             Style = (Style)FindResource("NavTreeItemStyle"),
         });
 
+        // cutBox（裁剪保存；与 recordBox 一样什么都不允许）
+        var cutHeader = new TextBlock
+        {
+            Text = "cutBox",
+            Foreground = (Brush)FindResource("TextPrimary"),
+            VerticalAlignment = VerticalAlignment.Center,
+            ToolTip = "裁剪保存",
+        };
+        FolderTree.Items.Add(new TreeViewItem
+        {
+            Header = cutHeader,
+            Tag = CutDir,
+            Style = (Style)FindResource("NavTreeItemStyle"),
+        });
+
+        // 第二：voboX 根；未分类等所有文件夹都是它的子项
+        var rootHeader = new TextBlock
+        {
+            Text = "voboX",
+            Foreground = (Brush)FindResource("TextPrimary"),
+            VerticalAlignment = VerticalAlignment.Center,
+            ToolTip = "根目录",
+        };
+        var voboxItem = new TreeViewItem
+        {
+            Header = rootHeader,
+            Tag = FolderService.Root,
+            IsExpanded = true,
+            Style = (Style)FindResource("NavTreeItemStyle"),
+        };
         foreach (var node in FolderService.GetFolderTree())
-            FolderTree.Items.Add(BuildTreeItem(node));
+            voboxItem.Items.Add(BuildTreeItem(node));
+        FolderTree.Items.Add(voboxItem);
+
         SelectFolder(FolderService.Uncategorized);
     }
 
@@ -158,38 +200,57 @@ public partial class NavWindow : Window
             return;
         }
         var selPath = hitItem.Tag as string;
+
+        // recordBox / cutBox 什么都不允许：右键也不弹菜单
+        if (selPath is not null &&
+            (selPath.Equals(RecordDir, StringComparison.OrdinalIgnoreCase) ||
+             selPath.Equals(CutDir, StringComparison.OrdinalIgnoreCase)))
+        {
+            e.Handled = true;
+            return;
+        }
+
+        var isRoot = selPath is not null && selPath.Equals(FolderService.Root, StringComparison.OrdinalIgnoreCase);
         var menu = new ContextMenu();
 
-        var addChild = new MenuItem { Header = "新建子文件夹" };
-        addChild.Click += (s, _) => CreateFolderUnder(selPath ?? FolderService.Root);
-        menu.Items.Add(addChild);
-
-        var addSibling = new MenuItem { Header = "新建同级文件夹" };
-        addSibling.Click += (s, _) =>
-            CreateFolderUnder(selPath is null ? FolderService.Root
-                : Path.GetDirectoryName(selPath) ?? FolderService.Root);
-        menu.Items.Add(addSibling);
-
-        var selName = selPath is null ? "" : Path.GetFileName(selPath.TrimEnd(Path.DirectorySeparatorChar));
-        if (selPath is not null && selName != FolderService.Uncategorized)
+        if (isRoot)
         {
-            var del = new MenuItem { Header = "删除文件夹" };
-            del.Click += (s, _) =>
+            // voboX 只允许新建子文件夹（未分类等都在它底下）
+            var addChild = new MenuItem { Header = "新建子文件夹" };
+            addChild.Click += (s, _) => CreateFolderUnder(FolderService.Root);
+            menu.Items.Add(addChild);
+        }
+        else
+        {
+            var addChild = new MenuItem { Header = "新建子文件夹" };
+            addChild.Click += (s, _) => CreateFolderUnder(selPath ?? FolderService.Root);
+            menu.Items.Add(addChild);
+
+            var addSibling = new MenuItem { Header = "新建同级文件夹" };
+            addSibling.Click += (s, _) =>
+                CreateFolderUnder(selPath is null ? FolderService.Root
+                    : Path.GetDirectoryName(selPath) ?? FolderService.Root);
+            menu.Items.Add(addSibling);
+
+            var selName = Path.GetFileName(selPath!.TrimEnd(Path.DirectorySeparatorChar));
+            if (selName != FolderService.Uncategorized)
             {
-                if (MessageBox.Show(this, $"确定删除文件夹：{selName} 吗？\n（连同其中已拷贝的文件）", "voboX",
-                        MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
-                    return;
-                try
+                var del = new MenuItem { Header = "删除文件夹" };
+                del.Click += (s, _) =>
                 {
-                    Directory.Delete(selPath, true);
-                    LoadFolderTree();
-                    if (FolderTree.SelectedItem is null)
-                        SelectFolder(FolderService.Uncategorized);
-                    FolderChanged?.Invoke();
-                }
-                catch { }
-            };
-            menu.Items.Add(del);
+                    if (MessageBox.Show(this, $"确定删除文件夹：{selName} 吗？\n（连同其中已拷贝的文件）", "voboX",
+                            MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+                        return;
+                    try
+                    {
+                        Directory.Delete(selPath, true);
+                        LoadFolderTree();
+                        FolderChanged?.Invoke();
+                    }
+                    catch { }
+                };
+                menu.Items.Add(del);
+            }
         }
 
         menu.IsOpen = true;
@@ -198,13 +259,37 @@ public partial class NavWindow : Window
 
     /// <summary>按鼠标位置命中对应的树节点（右键针对的是鼠标下的文件夹）</summary>
     private TreeViewItem? GetTreeItemAtMouse()
+        => GetTreeItemAtPoint(Mouse.GetPosition(FolderTree));
+
+    /// <summary>按坐标命中树节点</summary>
+    private TreeViewItem? GetTreeItemAtPoint(Point pos)
     {
-        var pos = Mouse.GetPosition(FolderTree);
         var hit = VisualTreeHelper.HitTest(FolderTree, pos);
         var dep = hit?.VisualHit;
         while (dep is not null and not TreeViewItem)
             dep = VisualTreeHelper.GetParent(dep);
         return dep as TreeViewItem;
+    }
+
+    // ================= 拖放导入（拖到指定文件夹） =================
+
+    private void FolderTree_DragOver(object sender, DragEventArgs e)
+    {
+        e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop)
+            ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void FolderTree_Drop(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetData(DataFormats.FileDrop) is string[] files && files.Length > 0)
+        {
+            // 拖放目标是鼠标下的文件夹；空白处 = voboX 根
+            var item = GetTreeItemAtPoint(e.GetPosition(FolderTree));
+            var target = (item?.Tag as string) ?? FolderService.Root;
+            FolderDropped?.Invoke(target, files);
+        }
+        e.Handled = true;
     }
 
     private void CreateFolderUnder(string parentDir)
