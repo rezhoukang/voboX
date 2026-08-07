@@ -15,6 +15,7 @@ public partial class SettingsWindow : Window
 
     private static readonly SortOption[] SortOptions =
     {
+        new("none", "无排序（原始顺序）"),
         new("time", "加入时间（新→旧）"),
         new("timeAsc", "加入时间（旧→新）"),
         new("name", "文件名（A→Z）"),

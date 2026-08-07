@@ -195,6 +195,7 @@ public partial class MainWindow : Window
         // 按设置的排序规则排序（正反都有）：GetFolderItems 只保证物理+log 去重，顺序这里重排
         IEnumerable<AudioItem> sorted = _settings.Settings.SortRule switch
         {
+            "none" => _allItems, // 无排序：保持文件夹原始顺序
             "timeAsc" => _allItems.OrderBy(a => a.AddedAt),
             "name" => _allItems.OrderBy(a => a.FileName, StringComparer.OrdinalIgnoreCase),
             "nameDesc" => _allItems.OrderByDescending(a => a.FileName, StringComparer.OrdinalIgnoreCase),

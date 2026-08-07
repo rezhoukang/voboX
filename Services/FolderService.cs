@@ -139,8 +139,7 @@ public static class FolderService
         return items
             .GroupBy(a => a.FilePath, StringComparer.OrdinalIgnoreCase)
             .Select(g => g.First())
-            .OrderBy(a => a.FileName, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+            .ToList(); // 保持原始顺序（物理文件在前、log 索引在后），排序交给 MainWindow 按规则处理
     }
 
     // ================= 拷贝真实文件到 voboX =================
