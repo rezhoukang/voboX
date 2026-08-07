@@ -704,8 +704,8 @@ public partial class MainWindow : Window
     {
         bool hasSel = start >= 0 && end > start;
         CropButton.IsEnabled = hasSel;
-        // 重新选择选区 = 重置播放：立即停止正在播放的音频，不等上一次播放结束
-        if (_player.IsPlaying)
+        // 重新选择选区 = 重置播放：无论播放中还是暂停中，都立即停止并清空，不等上一次播放结束
+        if (_player.CurrentPath is not null)
         {
             _player.Stop();
             StopPlayingFlag();
