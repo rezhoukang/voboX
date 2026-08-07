@@ -69,9 +69,10 @@ public partial class NavWindow : Window
     /// <summary>常驻「Record」对应的录音目录（可配置）</summary>
     public string RecordDir { get; set; } = AppPaths.RecordingsDir;
 
-    /// <summary>重新加载树：顶部常驻「Record」（录音），默认选中「未分类」</summary>
+    /// <summary>重新加载树：顶部常驻「recordBox」（录音），默认选中「未分类」</summary>
     public void LoadFolderTree()
     {
+        FolderService.EnsureUncategorized(); // 未分类被删后自动恢复
         FolderTree.Items.Clear();
 
         // 常驻根目录：Record（录音目录），置于最上

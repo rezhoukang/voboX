@@ -180,6 +180,11 @@ public partial class MainWindow : Window
     // ================= 列表加载 / 搜索 =================
     private void ReloadSamples()
     {
+        // 未分类被删后自动恢复
+        if (_currentFolder.Equals(Path.Combine(FolderService.Root, FolderService.Uncategorized),
+                StringComparison.OrdinalIgnoreCase) && !Directory.Exists(_currentFolder))
+            FolderService.EnsureUncategorized();
+
         var keyword = SearchBox.Text.Trim();
         var items = FolderService.GetFolderItems(_currentFolder);
         _allItems.Clear();

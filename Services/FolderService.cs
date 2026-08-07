@@ -50,6 +50,14 @@ public static class FolderService
             File.WriteAllText(InLogFile(dir), "", new System.Text.UTF8Encoding(false));
     }
 
+    /// <summary>确保「未分类」文件夹存在（含 log / inLog），被删后自动恢复</summary>
+    public static void EnsureUncategorized()
+    {
+        var dir = Path.Combine(Root, Uncategorized);
+        Directory.CreateDirectory(dir);
+        EnsureTwoFiles(dir);
+    }
+
     /// <summary>文件夹树节点</summary>
     public class FolderNode
     {
