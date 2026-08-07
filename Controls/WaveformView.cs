@@ -42,6 +42,7 @@ public class WaveformView : FrameworkElement
     public event Action<double, double>? SelectionChanged;
 
     private bool _dragging;
+    private double _dragAnchor;   // 按下时的固定锚点（秒），保证从右往左拉也能正常出选区
 
     private static readonly Brush BgBrush = new SolidColorBrush(Color.FromArgb(0x24, 0xFF, 0xFF, 0xFF));
     private static readonly Brush PlayedBrush = new SolidColorBrush(Color.FromRgb(0x25, 0x63, 0xEB));
@@ -170,9 +171,9 @@ public class WaveformView : FrameworkElement
     {
         base.OnMouseLeftButtonDown(e);
         Focus();
-        double t = XToTime(e.GetPosition(this).X);
-        SelectionStart = t;
-        SelectionEnd = t;
+        _dragAnchor = XToTime(e.GetPosition(this).X);
+        SelectionStart = _dragAnchor;
+        SelectionEnd = _dragAnchor;
         _dragging = true;
         CaptureMouse();
         InvalidateVisual();
@@ -183,11 +184,9 @@ public class WaveformView : FrameworkElement
         base.OnMouseMove(e);
         if (_dragging)
         {
-            SelectionEnd = XToTime(e.GetPosition(this).X);
-            if (SelectionEnd < SelectionStart)
-            {
-                (SelectionStart, SelectionEnd) = (SelectionEnd, SelectionStart);
-            }
+            double t = XToTime(e.GetPosition(this).X);
+            SelectionStart = Math.Min(_dragAnchor, t);
+            SelectionEnd = Math.Max(_dragAnchor, t);
             InvalidateVisual();
             SelectionChanged?.Invoke(SelectionStart, SelectionEnd);
         }
