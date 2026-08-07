@@ -193,7 +193,9 @@ public static class FolderService
         {
             // 读取失败按 0 处理
         }
-        return new AudioItem { FilePath = filePath, DurationMs = ms, AddedAt = DateTime.Now };
+        DateTime added;
+        try { added = File.GetCreationTime(filePath); } catch { added = DateTime.Now; }
+        return new AudioItem { FilePath = filePath, DurationMs = ms, AddedAt = added };
     }
 
     private static bool IsAudio(string path)

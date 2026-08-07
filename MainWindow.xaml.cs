@@ -192,13 +192,24 @@ public partial class MainWindow : Window
         _allItems.Clear();
         _allItems.AddRange(items);
 
+        // 按设置的排序规则排序（正反都有）：GetFolderItems 只保证物理+log 去重，顺序这里重排
+        IEnumerable<AudioItem> sorted = _settings.Settings.SortRule switch
+        {
+            "timeAsc" => _allItems.OrderBy(a => a.AddedAt),
+            "name" => _allItems.OrderBy(a => a.FileName, StringComparer.OrdinalIgnoreCase),
+            "nameDesc" => _allItems.OrderByDescending(a => a.FileName, StringComparer.OrdinalIgnoreCase),
+            "duration" => _allItems.OrderByDescending(a => a.DurationMs),
+            "durationAsc" => _allItems.OrderBy(a => a.DurationMs),
+            _ => _allItems.OrderByDescending(a => a.AddedAt), // time：新→旧
+        };
+
         var visible = string.IsNullOrEmpty(keyword)
-            ? _allItems
-            : _allItems.Where(a => a.FileName.Contains(keyword, StringComparison.OrdinalIgnoreCase)).ToList();
+            ? sorted
+            : sorted.Where(a => a.FileName.Contains(keyword, StringComparison.OrdinalIgnoreCase));
 
         // 必须赋新实例：ItemsSource 引用相同会被 WPF 视为无变化，列表不会刷新
         FileList.ItemsSource = visible.ToList();
-        FileCountText.Text = $"{Path.GetFileName(_currentFolder.TrimEnd(Path.DirectorySeparatorChar))}（{visible.Count}）";
+        FileCountText.Text = $"{Path.GetFileName(_currentFolder.TrimEnd(Path.DirectorySeparatorChar))}（{visible.Count()}）";
         SelectedCountText.Text = "已选择 0 个文件";
         UpdateSelectAllState();
     }

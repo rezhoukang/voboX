@@ -6,7 +6,7 @@ public class AppSettings
     /// <summary>录制设备索引</summary>
     public int RecordDeviceIndex { get; set; }
 
-    /// <summary>文件排序规则：time | name | size | duration</summary>
+    /// <summary>文件排序规则：time | timeAsc | name | nameDesc | duration | durationAsc</summary>
     public string SortRule { get; set; } = "time";
 
     /// <summary>开机自启动</summary>
