@@ -59,7 +59,7 @@ public partial class SettingsWindow : Window
         int n = FolderService.CopyIndexedToVobox();
         MessageBox.Show(this,
             $"已拷贝 {n} 个文件到：\n{AppPaths.DefaultSaveBoxPath}\n\n" +
-            $"（原 log 索引已移除，登记于 inLog）",
+            $"（原 log 索引已移除，文件已真实拷入）",
             "voboX");
     }
 

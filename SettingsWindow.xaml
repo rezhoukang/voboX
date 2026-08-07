@@ -228,7 +228,7 @@
 
                 <TextBlock Text="拷贝真实文件到 voboX"
                            FontSize="11" Foreground="{StaticResource SettingsLabelBrush}" Margin="0,16,0,0"/>
-                <TextBlock Text="把 log 索引的外部文件实际拷贝进 voboX 对应文件夹（拷入后登记到 inLog）"
+                <TextBlock Text="把 log 索引的外部文件实际拷贝进 voboX 对应文件夹（拷入后 log 自动移除）"
                            FontSize="11" Foreground="{StaticResource TextSecondary}" Margin="0,5,0,0" TextWrapping="Wrap"/>
                 <TextBlock x:Name="SaveBoxPathText" FontSize="11" Foreground="{StaticResource TextSecondary}"
                            Margin="0,4,0,0" TextWrapping="Wrap"/>

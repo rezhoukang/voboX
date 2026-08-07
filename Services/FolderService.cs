@@ -7,9 +7,8 @@ namespace voboX.Services;
 /// voboX 树状文件夹管理：
 /// - Root = Box\voboX（全部按文件夹管理，不复制，只索引）
 /// - 默认「未分类」文件夹（开屏进入）
-/// - 每个文件夹下带两个文件（不是文件夹）：
+/// 每个文件夹下带一个文件（不是文件夹）：
 ///     log   外部文件索引：每行一个源文件绝对路径（未拷贝）
-///     inLog 已拷贝登记：每行一个已拷贝进本文件夹的目标路径
 /// </summary>
 public static class FolderService
 {
@@ -19,43 +18,38 @@ public static class FolderService
     public static string Root { get; set; } = AppPaths.DefaultSaveBoxPath;
 
     /// <summary>文件夹下的外部索引 log 文件</summary>
-    public static string LogFile(string folderPath) => Path.Combine(folderPath, "log");
+    public static string LogFile(string folderPath) => Path.Combine(folderPath, "log.txt");
 
-    /// <summary>文件夹下的已拷贝登记 inLog 文件</summary>
-    public static string InLogFile(string folderPath) => Path.Combine(folderPath, "inLog");
-
-    /// <summary>确保目录结构：根 / 未分类，并为每个子文件夹创建 log、inLog 文件</summary>
+    /// <summary>确保目录结构：根 / 未分类，并为每个子文件夹创建 log 文件</summary>
     public static void EnsureStructure()
     {
         Directory.CreateDirectory(Root);
         Directory.CreateDirectory(Path.Combine(Root, Uncategorized));
-        // 只为子文件夹创建 log / inLog 文件（根本身不创建）
+        // 只为子文件夹创建 log 文件（根本身不创建）
         foreach (var d in Directory.GetDirectories(Root))
             EnsureFolderFiles(d);
     }
 
-    /// <summary>为 dir 及其全部子文件夹补建 log / inLog 文件（不存在才建）</summary>
+    /// <summary>为 dir 及其全部子文件夹补建 log 文件（不存在才建）</summary>
     public static void EnsureFolderFiles(string dir)
     {
         foreach (var d in Directory.GetDirectories(dir))
             EnsureFolderFiles(d);
-        EnsureTwoFiles(dir);
+        EnsureLogFile(dir);
     }
 
-    private static void EnsureTwoFiles(string dir)
+    private static void EnsureLogFile(string dir)
     {
         if (!File.Exists(LogFile(dir)))
             File.WriteAllText(LogFile(dir), "", new System.Text.UTF8Encoding(false));
-        if (!File.Exists(InLogFile(dir)))
-            File.WriteAllText(InLogFile(dir), "", new System.Text.UTF8Encoding(false));
     }
 
-    /// <summary>确保「未分类」文件夹存在（含 log / inLog），被删后自动恢复</summary>
+    /// <summary>确保「未分类」文件夹存在（含 log），被删后自动恢复</summary>
     public static void EnsureUncategorized()
     {
         var dir = Path.Combine(Root, Uncategorized);
         Directory.CreateDirectory(dir);
-        EnsureTwoFiles(dir);
+        EnsureLogFile(dir);
     }
 
     /// <summary>文件夹树节点</summary>
@@ -66,7 +60,7 @@ public static class FolderService
         public List<FolderNode> Children { get; set; } = new();
     }
 
-    /// <summary>递归构建文件夹树（log / inLog 是文件，不会进树）</summary>
+    /// <summary>递归构建文件夹树（log 是文件，不会进树）</summary>
     public static List<FolderNode> GetFolderTree()
     {
         var list = new List<FolderNode>();
@@ -153,7 +147,7 @@ public static class FolderService
 
     /// <summary>
     /// 遍历每个文件夹的 log 文件，把外部文件真实拷贝进该文件夹，
-    /// 追加登记到 inLog，并从 log 移除该行。返回拷贝数量。
+    /// 并从 log 移除该行。返回拷贝数量。
     /// </summary>
     public static int CopyIndexedToVobox()
     {
@@ -174,7 +168,6 @@ public static class FolderService
                 try
                 {
                     File.Copy(src, dest, overwrite: false);
-                    AppendLine(InLogFile(dir), dest);
                     copied++;
                     continue; // 已拷贝，从 log 移除
                 }
@@ -184,13 +177,6 @@ public static class FolderService
             File.WriteAllLines(log, remain, new System.Text.UTF8Encoding(false));
         }
         return copied;
-    }
-
-    private static void AppendLine(string file, string line)
-    {
-        var lines = File.Exists(file) ? File.ReadAllLines(file).ToList() : new List<string>();
-        lines.Add(line);
-        File.WriteAllLines(file, lines, new System.Text.UTF8Encoding(false));
     }
 
     // ================= 工具 =================
