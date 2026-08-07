@@ -384,6 +384,7 @@ public partial class MainWindow : Window
     {
         Waveform.Peaks = null;
         Waveform.ClearSelection();
+        Waveform.Playhead = 0; // 切文件时清零播放头，避免上一文件的进度/蓝色段残留
         var path = item.FilePath;
         Task.Run(() =>
         {
@@ -412,47 +413,113 @@ public partial class MainWindow : Window
 
     private void FileList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
+        // 双击：无论当前状态，都从头播放
         if (FileList.SelectedItem is AudioItem item)
-            PlayOrToggle(item);
+            PlayFromStart(item);
     }
 
-    private void PlayButton_Click(object sender, RoutedEventArgs e)
+    private void PlayButton_Click(object sender, RoutedEventArgs e) => TogglePlayback();
+
+    /// <summary>
+    /// 底部播放按钮（空格键同款）：
+    /// 播放中 → 暂停；同一文件暂停中 → 继续；真正播完 → 按策略重播；其他 → 按策略播放。
+    /// 策略：有蓝色选区 → 只播选区；否则整段从头播。
+    /// </summary>
+    private void TogglePlayback()
     {
         if (_current is null) return;
+
+        // 正在播放同一文件 → 暂停
         if (_player.IsPlaying && _player.CurrentPath == _current.FilePath)
         {
             _player.Toggle();
             UpdatePlayIcon();
             return;
         }
-        PlayOrToggle(_current);
-    }
 
-    private void PlayOrToggle(AudioItem item)
-    {
-        if (item is null) return;
-        if (_player.IsPlaying && _player.CurrentPath == item.FilePath)
+        // 同一文件：暂停中（含暂停在末尾）→ 继续；真正自然播完 → 按策略重播
+        if (_player.CurrentPath == _current.FilePath)
         {
-            _player.Toggle();
-            UpdatePlayIcon();
+            if (_player.IsFinished)
+                PlayCurrentByStrategy();
+            else
+            {
+                _player.Resume();
+                UpdatePlayIcon();
+            }
             return;
         }
+
+        // 其他文件 → 按策略播放
+        PlayCurrentByStrategy();
+    }
+
+    /// <summary>底部播放键策略：有蓝色选区 → 只播选区；否则整段从头播</summary>
+    private void PlayCurrentByStrategy()
+    {
+        if (_current is null) return;
+        if (TryGetSelectionRange(out var s, out var e))
+            PlayRange(_current, s, e);
+        else
+            PlayFromStart(_current);
+    }
+
+    /// <summary>只播放选区范围（start ~ end 秒）</summary>
+    private void PlayRange(AudioItem item, double startSec, double endSec)
+    {
+        if (item is null || !File.Exists(item.FilePath))
+        {
+            if (item is not null)
+                MessageBox.Show(this, "文件已丢失：\n" + item.FilePath, "voboX");
+            return;
+        }
+        StopPlayingFlag();
+        _player.Play(item.FilePath, startSec, endSec);
+        _playingItem = item;
+        item.IsPlaying = true;
+        Waveform.Playhead = _player.PlaybackStart;
+        UpdateTimeText(0, _player.Duration);
+        UpdatePlayIcon();
+        if (!ReferenceEquals(_current, item))
+            FileList.SelectedItem = item;
+    }
+
+    /// <summary>读取波形上的蓝色选区（秒）；无有效选区返回 false</summary>
+    private bool TryGetSelectionRange(out double start, out double end)
+    {
+        start = Waveform.SelectionStart;
+        end = Waveform.SelectionEnd;
+        return start >= 0 && end > start;
+    }
+
+    /// <summary>从头播放指定文件（双击 / 换文件时用）</summary>
+    private void PlayFromStart(AudioItem item)
+    {
+        if (item is null) return;
         if (!File.Exists(item.FilePath))
         {
             MessageBox.Show(this, "文件已丢失：\n" + item.FilePath, "voboX");
             return;
         }
-
         StopPlayingFlag();
-        _player.Play(item.FilePath);
+        _player.Play(item.FilePath); // Play 内部先 Stop，再从 0 开始
         _playingItem = item;
         item.IsPlaying = true;
+        // 立即重置播放头与时间显示（不必等 10ms 定时器第一拍）
+        Waveform.Playhead = 0;
+        UpdateTimeText(0, item.DurationMs / 1000.0);
         UpdatePlayIcon();
-
         if (!ReferenceEquals(_current, item))
-        {
             FileList.SelectedItem = item;
-        }
+    }
+
+    /// <summary>空格键 = 播放/暂停（与底部播放按钮一致；搜索框里按空格不拦截）</summary>
+    private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Space || _current is null) return;
+        if (Keyboard.FocusedElement is TextBox) return; // 输入框内空格是字符
+        e.Handled = true;
+        TogglePlayback();
     }
 
     private void StopPlayingFlag()
@@ -475,7 +542,8 @@ public partial class MainWindow : Window
         if (_player.CurrentPath == _current?.FilePath)
         {
             UpdateTimeText(seconds, _player.Duration);
-            Waveform.Playhead = seconds;
+            // 播放头用文件绝对坐标：选区播放时从选区左缘走到右缘
+            Waveform.Playhead = _player.PlaybackStart + seconds;
         }
     }
 
@@ -484,8 +552,9 @@ public partial class MainWindow : Window
         StopPlayingFlag();
         PlayButton.Tag = "\uE768";
         Waveform.Playhead = 0;
-        if (_current is not null)
-            UpdateTimeText(0, _current.DurationMs / 1000.0);
+        if (_current is null) return;
+        // 播放完：选区仍在 → 保持选区总长度；无选区 → 整段时长
+        UpdateTimeText(0, TryGetSelectionRange(out var s, out var e) ? e - s : _current.DurationMs / 1000.0);
     }
 
     private void UpdateTimeText(double current, double total)
@@ -504,13 +573,11 @@ public partial class MainWindow : Window
 
     private void OnSelectionChanged(double start, double end)
     {
-        CropButton.IsEnabled = start >= 0 && end > start;
-    }
-
-    private void ClearSelection_Click(object sender, RoutedEventArgs e)
-    {
-        Waveform.ClearSelection();
-        CropButton.IsEnabled = false;
+        bool hasSel = start >= 0 && end > start;
+        CropButton.IsEnabled = hasSel;
+        // 拖选时立即刷新时间：选区 → 0 / 选区时长；清除选区 → 0 / 整段时长
+        if (_current is null) return;
+        UpdateTimeText(0, hasSel ? end - start : _current.DurationMs / 1000.0);
     }
 
     private void CropButton_Click(object sender, RoutedEventArgs e)

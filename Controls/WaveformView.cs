@@ -126,7 +126,11 @@ public class WaveformView : FrameworkElement
 
         double mid = h / 2;
         double amp = Math.Max(2, h / 2 - 4);
-        double playedX = Playhead / Math.Max(Duration, 1e-6) * w;
+
+        // 选中的区域显示为蓝色波形，其余灰色（不再按播放进度染色）
+        double selSx = SelectionStart >= 0 ? TimeToX(SelectionStart) : -1;
+        double selEx = SelectionEnd > SelectionStart ? TimeToX(SelectionEnd) : -1;
+        bool hasSelection = selSx >= 0 && selEx > selSx;
 
         int cols = (int)Math.Min(peaks.Length, Math.Max(1, w / 2));
         for (int i = 0; i < cols; i++)
@@ -139,7 +143,8 @@ public class WaveformView : FrameworkElement
             peak = Math.Clamp(peak, 0, 1) * amp;
 
             double x = (i + 0.5) * w / cols;
-            dc.DrawLine(x <= playedX ? PlayedPen : UnplayedPen, new Point(x, mid - peak), new Point(x, mid + peak));
+            bool inSel = hasSelection && x >= selSx && x <= selEx;
+            dc.DrawLine(inSel ? PlayedPen : UnplayedPen, new Point(x, mid - peak), new Point(x, mid + peak));
         }
 
         // 裁剪选区

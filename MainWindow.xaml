@@ -14,6 +14,7 @@
         Foreground="{StaticResource TextPrimary}"
         UseLayoutRounding="True"
         AllowDrop="True"
+        PreviewKeyDown="Window_PreviewKeyDown"
         DragOver="Window_DragOver"
         Drop="Window_Drop">
 
@@ -49,9 +50,7 @@
 
                 <!-- 左上：项目名 -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="14,0,0,0" VerticalAlignment="Center">
-                    <TextBlock Text="&#xE8F1;" FontFamily="Segoe MDL2 Assets" FontSize="16"
-                               Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center"/>
-                    <TextBlock Text="voboX" FontSize="15" FontWeight="SemiBold" Margin="8,0,0,0"
+                    <TextBlock Text="voboX" FontSize="15" FontWeight="SemiBold"
                                VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
                 </StackPanel>
 
@@ -227,7 +226,6 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
                     <Button x:Name="PlayButton" Grid.Column="0" Style="{StaticResource RoundIconButtonStyle}"
@@ -237,9 +235,7 @@
                                Margin="10,0,8,0" VerticalAlignment="Center"/>
                     <TextBlock x:Name="TimeText" Grid.Column="2" FontFamily="Consolas" FontSize="11"
                                Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"/>
-                    <Button x:Name="ClearSelectionButton" Grid.Column="3" Style="{StaticResource IconButtonStyle}"
-                            Tag="&#xE711;" ToolTip="清除选区" Margin="8,0,0,0" Click="ClearSelection_Click"/>
-                    <Button x:Name="CropButton" Grid.Column="4" Style="{StaticResource AccentButtonStyle}"
+                    <Button x:Name="CropButton" Grid.Column="3" Style="{StaticResource AccentButtonStyle}"
                             Content="裁剪保存" Margin="8,0,0,0" Click="CropButton_Click"/>
                 </Grid>
 
