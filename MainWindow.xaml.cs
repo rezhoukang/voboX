@@ -690,6 +690,14 @@ public partial class MainWindow : Window
     {
         bool hasSel = start >= 0 && end > start;
         CropButton.IsEnabled = hasSel;
+        // 重新选择选区 = 重置播放：立即停止正在播放的音频，不等上一次播放结束
+        if (_player.IsPlaying)
+        {
+            _player.Stop();
+            StopPlayingFlag();
+            UpdatePlayIcon();
+            Waveform.Playhead = 0;
+        }
         // 拖选时立即刷新时间：选区 → 0 / 选区时长；清除选区 → 0 / 整段时长
         if (_current is null) return;
         UpdateTimeText(0, hasSel ? end - start : _current.DurationMs / 1000.0);
