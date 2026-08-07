@@ -121,6 +121,8 @@ public partial class MainWindow : Window
         _navWindow = new NavWindow { Owner = this, RecordDir = _settings.ResolveRecordboxDir() };
         _navWindow.FolderSelected += path =>
         {
+            if (string.Equals(path, _currentFolder, StringComparison.OrdinalIgnoreCase))
+                return; // 同一文件夹：不重载，保留当前文件选择
             _currentFolder = path;
             ReloadSamples();
         };

@@ -79,6 +79,9 @@ public partial class NavWindow : Window
     /// <summary>常驻「cutBox」对应的裁剪保存目录</summary>
     public string CutDir { get; set; } = AppPaths.DefaultCutboxPath;
 
+    private string? _currentPath;      // 当前选中的文件夹完整路径（收起/展开后恢复用）
+    private bool _suppressSelectEvent; // 程序化选中时抑制 FolderSelected 事件
+
     /// <summary>重新加载树：recordBox 最顶，voboX 其次（未分类等都在 voboX 底下）</summary>
     public void LoadFolderTree()
     {
@@ -134,6 +137,9 @@ public partial class NavWindow : Window
             voboxItem.Items.Add(BuildTreeItem(node));
         FolderTree.Items.Add(voboxItem);
 
+        // 恢复收起前的选中文件夹（不触发 FolderSelected，避免主列表重载清空当前选择）；无记录则默认「未分类」
+        if (_currentPath is not null && TrySelectByPath(_currentPath))
+            return;
         SelectFolder(FolderService.Uncategorized);
     }
 
@@ -141,9 +147,22 @@ public partial class NavWindow : Window
     public void SelectFolder(string folderName)
     {
         var target = Path.Combine(FolderService.Root, folderName);
-        foreach (var obj in FolderTree.Items)
-            if (obj is TreeViewItem item && TrySelectRecursive(item, target))
-                return;
+        if (TrySelectByPath(target))
+            _currentPath = target;
+    }
+
+    /// <summary>按完整路径选中节点（程序化选中，不触发 FolderSelected 事件）；找到返回 true</summary>
+    private bool TrySelectByPath(string target)
+    {
+        _suppressSelectEvent = true;
+        try
+        {
+            foreach (var obj in FolderTree.Items)
+                if (obj is TreeViewItem item && TrySelectRecursive(item, target))
+                    return true;
+        }
+        finally { _suppressSelectEvent = false; }
+        return false;
     }
 
     private TreeViewItem BuildTreeItem(FolderService.FolderNode node)
@@ -184,8 +203,12 @@ public partial class NavWindow : Window
 
     private void FolderTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
     {
+        if (_suppressSelectEvent) return; // 程序化选中（收起/展开恢复）不触发
         if (FolderTree.SelectedItem is TreeViewItem item && item.Tag is string path)
+        {
+            _currentPath = path;
             FolderSelected?.Invoke(path); // 完整路径（Record=录音目录 / voboX 内文件夹）
+        }
     }
 
     // ================= 右键：新建子 / 同级 / 删除 =================
@@ -226,16 +249,10 @@ public partial class NavWindow : Window
             addChild.Click += (s, _) => CreateFolderUnder(selPath ?? FolderService.Root);
             menu.Items.Add(addChild);
 
-            var addSibling = new MenuItem { Header = "新建同级文件夹" };
-            addSibling.Click += (s, _) =>
-                CreateFolderUnder(selPath is null ? FolderService.Root
-                    : Path.GetDirectoryName(selPath) ?? FolderService.Root);
-            menu.Items.Add(addSibling);
-
             var selName = Path.GetFileName(selPath!.TrimEnd(Path.DirectorySeparatorChar));
             if (selName != FolderService.Uncategorized)
             {
-                var del = new MenuItem { Header = "删除文件夹" };
+                var del = new MenuItem { Header = "删除" };
                 del.Click += (s, _) =>
                 {
                     if (MessageBox.Show(this, $"确定删除文件夹：{selName} 吗？\n（连同其中已拷贝的文件）", "voboX",
