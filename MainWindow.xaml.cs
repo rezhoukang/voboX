@@ -6,6 +6,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using voboX.Models;
 using voboX.Services;
+using voboX.Windows;
 
 namespace voboX;
 
@@ -23,8 +24,10 @@ public partial class MainWindow : Window
     private readonly List<AudioItem> _allItems = new();
     private AudioItem? _current;
     private AudioItem? _playingItem;
-    private long _activeGroupId;
-    private string _activeGroupName = "全部";
+    private string _currentFolder = FolderService.Uncategorized; // 当前文件夹（相对 voboX 根）
+    private bool _navExpanded; // 左侧导航悬浮窗是否展开（默认收起）
+    private NavWindow? _navWindow; // 左侧导航悬浮窗（铺在主窗口左侧，随主窗口移动）
+    private NavButtonWindow? _navButton; // 展开/收起按钮悬浮窗（随状态换位换图标）
     private Point _mouseDownPos;
     private ListBoxItem? _dragItem;
     private bool _suppressDragClick;   // 右键菜单弹出后，忽略下一次左键拖拽（防误复制）
@@ -47,68 +50,108 @@ public partial class MainWindow : Window
         Topmost = _settings.Settings.AlwaysOnTop;
         UpdatePinVisual();
         ApplyAutoStart(_settings.Settings.AutoStart);
-        LoadGroups();
+        FolderService.EnsureStructure();
         ReloadSamples();
+        // Owner 要求窗口已显示，故按钮悬浮窗等窗口 Loaded 后再创建
+        Loaded += (s, e) =>
+        {
+            EnsureNavButton();
+            UpdateNavPositions();
+        };
     }
 
-    // ================= 列表加载 / 分组 / 搜索 =================
+    // ================= 左侧导航悬浮窗（导航窗 + 按钮悬浮窗，随主窗口移动） =================
 
-    private void ReloadSamples()
+    /// <summary>展开/收起导航：展开时显示导航悬浮窗，收起时隐藏；按钮悬浮窗自动换位换图标</summary>
+    private void ToggleNav()
     {
-        var keyword = SearchBox.Text;
-        var items = _repo.Search(keyword, _settings.Settings.SortRule);
-        _allItems.Clear();
-        _allItems.AddRange(items);
-
-        List<AudioItem> visible;
-        if (_activeGroupId == 0)
+        _navExpanded = !_navExpanded;
+        if (_navExpanded)
         {
-            visible = _allItems;
+            EnsureNavWindow();
+            _navWindow!.LoadFolderTree();
+            _navWindow.Show();
         }
         else
         {
-            visible = _allItems.Where(a => a.GroupNames
-                .Split(',', StringSplitOptions.RemoveEmptyEntries)
-                .Any(g => g.Trim() == _activeGroupName)).ToList();
+            _navWindow?.Hide();
         }
+        UpdateNavPositions();
+    }
+
+    /// <summary>创建按钮悬浮窗（收起态在主窗口左侧外；位置跟随主窗口）</summary>
+    private void EnsureNavButton()
+    {
+        if (_navButton is not null) return;
+        _navButton = new NavButtonWindow { Owner = this, ShowActivated = false };
+        _navButton.Clicked += ToggleNav;
+        _navButton.Show();
+        // 主窗口移动 / 缩放时，导航窗与按钮窗一起贴紧
+        LocationChanged += (s, e) => UpdateNavPositions();
+        SizeChanged += (s, e) => UpdateNavPositions();
+    }
+
+    /// <summary>创建导航悬浮窗（矮高度：到搜索框高度）并挂钩事件</summary>
+    private void EnsureNavWindow()
+    {
+        if (_navWindow is not null) return;
+        _navWindow = new NavWindow { Owner = this };
+        _navWindow.FolderSelected += rel =>
+        {
+            _currentFolder = rel;
+            ReloadSamples();
+        };
+        _navWindow.FolderChanged += () =>
+        {
+            // 若当前文件夹被删，回退到「未分类」并同步悬浮窗选中
+            if (!Directory.Exists(Path.Combine(FolderService.Root, _currentFolder)))
+            {
+                _currentFolder = FolderService.Uncategorized;
+                _navWindow.SelectFolder(FolderService.Uncategorized);
+            }
+            ReloadSamples();
+        };
+    }
+
+    /// <summary>
+    /// 让导航窗铺在主窗口左侧（高度到搜索框高度）、按钮窗贴在对应位置：
+    /// 收起态按钮在主窗口左侧外（左箭头=展开）；展开态按钮移到导航栏左侧（右箭头=收起）。
+    /// </summary>
+    private void UpdateNavPositions()
+    {
+        if (_navWindow is not null && _navExpanded)
+        {
+            _navWindow.Left = Left - _navWindow.Width;
+            _navWindow.Top = Top;
+            _navWindow.Height = 96; // 矮：顶栏到搜索框高度
+        }
+        if (_navButton is not null)
+        {
+            _navButton.Icon = _navExpanded ? "\uE76C" : "\uE76B";
+            _navButton.Left = _navExpanded
+                ? Left - 200 - _navButton.Width   // 导航栏左边（收起按钮）
+                : Left - _navButton.Width;         // 主窗口左侧外（展开按钮）
+            _navButton.Top = Top + (Height - _navButton.Height) / 2; // 垂直居中
+        }
+    }
+
+    // ================= 列表加载 / 搜索 =================
+    private void ReloadSamples()
+    {
+        var keyword = SearchBox.Text.Trim();
+        var items = FolderService.GetFolderItems(Path.Combine(FolderService.Root, _currentFolder));
+        _allItems.Clear();
+        _allItems.AddRange(items);
+
+        var visible = string.IsNullOrEmpty(keyword)
+            ? _allItems
+            : _allItems.Where(a => a.FileName.Contains(keyword, StringComparison.OrdinalIgnoreCase)).ToList();
 
         // 必须赋新实例：ItemsSource 引用相同会被 WPF 视为无变化，列表不会刷新
         FileList.ItemsSource = visible.ToList();
-        FileCountText.Text = $"全部文件（{visible.Count}）";
+        FileCountText.Text = $"{_currentFolder}（{visible.Count}）";
         SelectedCountText.Text = "已选择 0 个文件";
         UpdateSelectAllState();
-    }
-
-    private void LoadGroups()
-    {
-        GroupPanel.Children.Clear();
-        AddGroupChip("全部", 0);
-        foreach (var g in _repo.GetGroups())
-            AddGroupChip(g.Name, g.Id);
-    }
-
-    private void AddGroupChip(string name, long id)
-    {
-        var btn = new Button
-        {
-            Style = (Style)FindResource("ChipStyle"),
-            Content = name,
-            Margin = new Thickness(0, 0, 6, 0),
-            Tag = id,
-        };
-        if (_activeGroupId == id)
-        {
-            btn.Background = (SolidColorBrush)FindResource("AccentBrush");
-            btn.Foreground = Brushes.White;
-        }
-        btn.Click += (s, e) =>
-        {
-            _activeGroupId = id;
-            _activeGroupName = name;
-            LoadGroups();
-            ReloadSamples();
-        };
-        GroupPanel.Children.Add(btn);
     }
 
     private void SearchBox_TextChanged(object sender, TextChangedEventArgs e) => ReloadSamples();
@@ -181,7 +224,7 @@ public partial class MainWindow : Window
             }
         }
 
-        // 跳过 Tempbox 内的文件：拖出后误拖回本窗口时，不再把临时副本重新导入列表
+        // 跳过 tempBox 内的文件：拖出后误拖回本窗口时，不再把临时副本重新导入列表
         files = files.Where(f => !IsInsideDirectory(f, tempboxDir)).ToList();
 
         int added = 0;
@@ -189,8 +232,8 @@ public partial class MainWindow : Window
         {
             try
             {
-                using var reader = new NAudio.Wave.AudioFileReader(f);
-                _repo.AddSample(f, (long)reader.TotalTime.TotalMilliseconds);
+                // 只生成 log 索引登记到当前文件夹，不复制物理文件
+                FolderService.AddIndexLog(_currentFolder, f);
                 added++;
             }
             catch
@@ -199,7 +242,7 @@ public partial class MainWindow : Window
             }
         }
         ReloadSamples();
-        FileCountText.Text = added > 0 ? $"已导入 {added} 个文件" : "未发现可导入的音频";
+        FileCountText.Text = added > 0 ? $"已登记 {added} 个文件" : "未发现可导入的音频";
     }
 
     private static bool IsAudioFile(string path)
@@ -237,9 +280,8 @@ public partial class MainWindow : Window
             {
                 try
                 {
-                    using var reader = new NAudio.Wave.AudioFileReader(_recorder.OutputPath);
-                    _repo.AddSample(_recorder.OutputPath,
-                        (long)reader.TotalTime.TotalMilliseconds);
+                    // 录音登记为 log 索引（当前文件夹），不复制
+                    FolderService.AddIndexLog(_currentFolder, _recorder.OutputPath);
                     ReloadSamples();
                 }
                 catch { }
@@ -274,13 +316,12 @@ public partial class MainWindow : Window
 
     private void Settings_Click(object sender, RoutedEventArgs e)
     {
-        var win = new SettingsWindow(_settings) { Owner = this };
+        var win = new SettingsWindow(_settings, _repo) { Owner = this };
         win.ShowDialog();
         ApplyAutoStart(_settings.Settings.AutoStart);
         Topmost = _settings.Settings.AlwaysOnTop;
         UpdatePinVisual();
         ReloadSamples();
-        LoadGroups();
     }
 
     // ================= 窗口控制 =================
@@ -605,8 +646,9 @@ public partial class MainWindow : Window
         try
         {
             AudioCropService.Crop(_current.FilePath, Waveform.SelectionStart, Waveform.SelectionEnd, dlg.FileName);
-            _repo.AddSample(dlg.FileName,
-                (long)((Waveform.SelectionEnd - Waveform.SelectionStart) * 1000));
+            // 输出在 voboX 内 → 物理文件直接可见；否则登记 log 索引到当前文件夹
+            if (!FolderService.IsInside(dlg.FileName, FolderService.Root))
+                FolderService.AddIndexLog(_currentFolder, dlg.FileName);
             ReloadSamples();
             MessageBox.Show(this, "裁剪完成：\n" + dlg.FileName, "voboX");
         }
@@ -616,7 +658,7 @@ public partial class MainWindow : Window
         }
     }
 
-    // ================= 右键菜单（播放 / 分配到分组 / 移除） =================
+    // ================= 右键菜单（移除） =================
 
     private void FileList_ContextMenuOpening(object sender, ContextMenuEventArgs e)
     {
@@ -629,33 +671,12 @@ public partial class MainWindow : Window
         if (!FileList.SelectedItems.Contains(item))
             FileList.SelectedItem = item;
 
-        // 右键后：忽略下一次左键拖拽，避免「右键→左键」误触发复制到 Tempbox
+        // 右键后：忽略下一次左键拖拽，避免「右键→左键」误触发复制到 tempBox
         _suppressDragClick = true;
         _dragItem = null;
 
         // 复用同一个 ContextMenu 实例重建菜单项（避免每次新建导致闪烁）
         _fileMenu.Items.Clear();
-
-        var assign = new MenuItem { Header = "分配到分组" };
-        foreach (var g in _repo.GetGroups())
-        {
-            var mi = new MenuItem { Header = g.Name, Tag = g.Id };
-            mi.Click += (s, _) =>
-            {
-                var gid = (long)((MenuItem)s!).Tag;
-                foreach (AudioItem sel in FileList.SelectedItems)
-                    _repo.AssignGroup(sel.Id, gid);
-                ReloadSamples();
-            };
-            assign.Items.Add(mi);
-        }
-        if (assign.Items.Count == 0)
-            assign.Items.Add(new MenuItem { Header = "（暂无分组）", IsEnabled = false });
-        assign.Items.Add(new Separator());
-        var newGroup = new MenuItem { Header = "新建分组…" };
-        newGroup.Click += (s, _) => CreateGroupDialog();
-        assign.Items.Add(newGroup);
-        _fileMenu.Items.Add(assign);
 
         var remove = new MenuItem { Header = "移除" };
         remove.Click += (s, _) =>
@@ -663,10 +684,11 @@ public partial class MainWindow : Window
             var sel = FileList.SelectedItems.Cast<AudioItem>().ToList();
             if (sel.Count == 0) return;
             if (MessageBox.Show(this,
-                    $"确定从仓库移除 {sel.Count} 个文件吗？\n（原始文件不会被删除）",
+                    $"确定移除 {sel.Count} 个条目吗？\n（voboX 内文件会被删除；外部索引只删 log，源文件保留）",
                     "voboX", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
                 return;
-            foreach (var sample in sel) _repo.RemoveSample(sample.Id);
+            foreach (var item in sel)
+                FolderService.RemoveEntry(_currentFolder, item);
             ReloadSamples();
         };
         _fileMenu.Items.Add(remove);
@@ -690,20 +712,6 @@ public partial class MainWindow : Window
         while (dep is not null and not ListBoxItem)
             dep = VisualTreeHelper.GetParent(dep);
         return dep as ListBoxItem;
-    }
-
-    private void CreateGroupDialog()
-    {
-        var dlg = new Windows.InputDialog("新建分组", "分组名称：", "")
-        {
-            Owner = this,
-        };
-        if (dlg.ShowDialog() == true && !string.IsNullOrWhiteSpace(dlg.Value))
-        {
-            _repo.CreateGroup(dlg.Value.Trim(), "#2563EB");
-            LoadGroups();
-            ReloadSamples();
-        }
     }
 
     // ================= 列表项：复选框 =================
@@ -730,7 +738,7 @@ public partial class MainWindow : Window
         SelectAllCheck.IsChecked = total > 0 && sel == total ? (bool?)true : sel == 0 ? false : null;
     }
 
-    // ================= 拖出到外部（Tempbox 副本） =================
+    // ================= 拖出到外部（tempBox 副本） =================
 
     private void FileList_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
@@ -760,7 +768,7 @@ public partial class MainWindow : Window
         else
             dragItems = new List<AudioItem> { (AudioItem)_dragItem.DataContext };
 
-        // 先复制到 Tempbox，再以副本路径拖出，保证外部修改不影响源文件
+        // 先复制到 tempBox，再以副本路径拖出，保证外部修改不影响源文件
         var copyPaths = new List<string>();
         foreach (var it in dragItems)
         {
@@ -797,6 +805,7 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        _navWindow?.Close();
         _player.Dispose();
         _recorder.Dispose();
         _settings.Save();

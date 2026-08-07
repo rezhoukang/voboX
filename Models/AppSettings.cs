@@ -12,10 +12,10 @@ public class AppSettings
     /// <summary>开机自启动</summary>
     public bool AutoStart { get; set; }
 
-    /// <summary>裁剪保存目录（空 = 默认 Box\Cutbox）</summary>
+    /// <summary>裁剪保存目录（空 = 默认 Box\cutBox）</summary>
     public string CropSavePath { get; set; } = "";
 
-    /// <summary>Tempbox 目录（空 = 默认）</summary>
+    /// <summary>tempBox 目录（空 = 默认）</summary>
     public string TempboxPath { get; set; } = "";
 
     /// <summary>窗口始终置顶（钉子按钮，持久化）</summary>

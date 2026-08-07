@@ -20,12 +20,23 @@ public static class AppPaths
     /// <summary>SQLite 仓库文件</summary>
     public static string DbPath => Path.Combine(DataDir, "voboX.db");
 
-    /// <summary>录音输出目录</summary>
+    /// <summary>录音输出目录（Box\recordBox）</summary>
     public static string RecordingsDir
     {
         get
         {
-            var dir = Path.Combine(DataDir, "Recordings");
+            var dir = Path.Combine(BoxDir, "recordBox");
+            Directory.CreateDirectory(dir);
+            return dir;
+        }
+    }
+
+    /// <summary>“全部保存”输出根目录（Box\voboX，按标签分子文件夹）</summary>
+    public static string DefaultSaveBoxPath
+    {
+        get
+        {
+            var dir = Path.Combine(BoxDir, "voboX");
             Directory.CreateDirectory(dir);
             return dir;
         }
@@ -34,7 +45,7 @@ public static class AppPaths
     private static string? _boxDir;
 
     /// <summary>
-    /// 统一的 Box 文件夹（Tempbox / Cutbox 都放在这里）。
+    /// 统一的 Box 文件夹（tempBox / cutBox 都放在这里）。
     /// 开发运行时定位到项目根目录（向上找到 .csproj）；发布后回退到 exe 同级。
     /// </summary>
     private static string BoxDir
@@ -75,32 +86,34 @@ public static class AppPaths
         }
     }
 
-    /// <summary>默认 Tempbox 目录（根目录 Box\Tempbox，不可写时回退应用数据目录）</summary>
+    /// <summary>默认 tempBox 目录（根目录 Box\tempBox，不可写时回退应用数据目录）</summary>
     public static string DefaultTempboxPath
     {
         get
         {
-            var dir = Path.Combine(BoxDir, "Tempbox");
+            var dir = Path.Combine(BoxDir, "tempBox");
             Directory.CreateDirectory(dir);
             return dir;
         }
     }
 
-    /// <summary>默认裁剪保存目录（根目录 Box\Cutbox，不可写时回退应用数据目录）</summary>
+    /// <summary>默认裁剪保存目录（根目录 Box\cutBox，不可写时回退应用数据目录）</summary>
     public static string DefaultCutboxPath
     {
         get
         {
-            var dir = Path.Combine(BoxDir, "Cutbox");
+            var dir = Path.Combine(BoxDir, "cutBox");
             Directory.CreateDirectory(dir);
             return dir;
         }
     }
 
-    /// <summary>启动时确保 Box 目录结构存在（Tempbox / Cutbox）</summary>
+    /// <summary>启动时确保 Box 目录结构存在（tempBox / cutBox / voboX / recordBox）</summary>
     public static void EnsureBoxFolders()
     {
         _ = DefaultTempboxPath;
         _ = DefaultCutboxPath;
+        _ = DefaultSaveBoxPath;
+        _ = RecordingsDir;
     }
 }

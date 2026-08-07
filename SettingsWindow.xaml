@@ -161,7 +161,7 @@
                     </ComboBox.ItemTemplate>
                 </ComboBox>
 
-                <TextBlock Text="裁剪保存路径（留空 = Box\Cutbox）"
+                <TextBlock Text="裁剪保存路径（留空 = Box\cutBox）"
                            FontSize="11" Foreground="{StaticResource SettingsLabelBrush}"/>
                 <Grid Margin="0,5,0,14">
                     <Grid.ColumnDefinitions>
@@ -176,7 +176,7 @@
                             Margin="6,0,0,0" Click="CropOpen_Click"/>
                 </Grid>
 
-                <TextBlock Text="Tempbox 路径（留空 = Box\Tempbox）"
+                <TextBlock Text="tempBox 路径（留空 = Box\tempBox）"
                            FontSize="11" Foreground="{StaticResource SettingsLabelBrush}"/>
                 <Grid Margin="0,5,0,8">
                     <Grid.ColumnDefinitions>
@@ -193,6 +193,17 @@
 
                 <CheckBox x:Name="AutoStartCheck" Content="开机自启动"
                           Foreground="{StaticResource TextPrimary}" Margin="0,10,0,0"/>
+
+                <TextBlock Text="拷贝真实文件到 voboX"
+                           FontSize="11" Foreground="{StaticResource SettingsLabelBrush}" Margin="0,16,0,0"/>
+                <TextBlock Text="把 log 索引的外部文件实际拷贝进 voboX 对应文件夹（拷入后登记到 inLog）"
+                           FontSize="11" Foreground="{StaticResource TextSecondary}" Margin="0,5,0,0" TextWrapping="Wrap"/>
+                <TextBlock x:Name="SaveBoxPathText" FontSize="11" Foreground="{StaticResource TextSecondary}"
+                           Margin="0,4,0,0" TextWrapping="Wrap"/>
+                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                    <Button Style="{StaticResource SettingsSaveButtonStyle}" Content="拷贝" Click="CopyToVobox_Click"/>
+                    <Button Style="{StaticResource ToolButtonStyle}" Content="打开文件夹" Margin="6,0,0,0" Click="SaveBoxOpen_Click"/>
+                </StackPanel>
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
                     <Button Style="{StaticResource ToolButtonStyle}" Content="取消" Click="Cancel_Click"/>

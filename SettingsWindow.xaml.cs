@@ -5,12 +5,13 @@ using voboX.Services;
 
 namespace voboX;
 
-/// <summary>设置窗口：录制来源 / 排序规则 / 裁剪保存路径 / Tempbox / 开机自启</summary>
+/// <summary>设置窗口：录制来源 / 排序规则 / 裁剪保存路径 / tempBox / 开机自启</summary>
 public partial class SettingsWindow : Window
 {
     public record SortOption(string Key, string Label);
 
     private readonly SettingsService _settings;
+    private readonly AudioRepository _repo;
 
     private static readonly SortOption[] SortOptions =
     {
@@ -19,10 +20,11 @@ public partial class SettingsWindow : Window
         new("duration", "时长（长→短）"),
     };
 
-    public SettingsWindow(SettingsService settings)
+    public SettingsWindow(SettingsService settings, AudioRepository repo)
     {
         InitializeComponent();
         _settings = settings;
+        _repo = repo;
 
         // 录制设备
         var devices = AudioRecorderService.GetDeviceNames();
@@ -36,13 +38,28 @@ public partial class SettingsWindow : Window
         var idx = Array.FindIndex(SortOptions, s => s.Key == _settings.Settings.SortRule);
         SortCombo.SelectedIndex = Math.Max(0, idx);
 
-        // 裁剪默认路径就是 Box\Cutbox：留空时也把默认路径显示在输入框里
+        // 裁剪默认路径就是 Box\cutBox：留空时也把默认路径显示在输入框里
         CropPathBox.Text = string.IsNullOrWhiteSpace(_settings.Settings.CropSavePath)
             ? AppPaths.DefaultCutboxPath
             : _settings.Settings.CropSavePath;
         TempboxBox.Text = _settings.Settings.TempboxPath;
         AutoStartCheck.IsChecked = _settings.Settings.AutoStart;
+        SaveBoxPathText.Text = AppPaths.DefaultSaveBoxPath;
     }
+
+    // ================= 拷贝真实文件到 voboX =================
+
+    private void CopyToVobox_Click(object sender, RoutedEventArgs e)
+    {
+        int n = FolderService.CopyIndexedToVobox();
+        MessageBox.Show(this,
+            $"已拷贝 {n} 个文件到：\n{AppPaths.DefaultSaveBoxPath}\n\n" +
+            $"（原 log 索引已移除，登记于 inLog）",
+            "voboX");
+    }
+
+    private void SaveBoxOpen_Click(object sender, RoutedEventArgs e) =>
+        OpenInExplorer(AppPaths.DefaultSaveBoxPath);
 
     private void CropBrowse_Click(object sender, RoutedEventArgs e) => BrowseFolder(CropPathBox);
 

@@ -12,7 +12,7 @@ public partial class App : Application
 {
     protected override void OnStartup(StartupEventArgs e)
     {
-        // 启动即创建 Box 目录（Tempbox / Cutbox），保证用户随时可见
+        // 启动即创建 Box 目录（tempBox / cutBox），保证用户随时可见
         AppPaths.EnsureBoxFolders();
         base.OnStartup(e);
     }

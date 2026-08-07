@@ -146,74 +146,7 @@ public class AudioRepository
         var kw = keyword.Trim();
         return GetSamples(sortRule)
             .Where(a => a.FileName.Contains(kw, StringComparison.OrdinalIgnoreCase)
-                     || a.Tags.Contains(kw, StringComparison.OrdinalIgnoreCase)
-                     || a.GroupNames.Contains(kw, StringComparison.OrdinalIgnoreCase))
+                     || a.Tags.Contains(kw, StringComparison.OrdinalIgnoreCase))
             .ToList();
-    }
-
-    // ================= 分组 =================
-
-    public List<SampleGroup> GetGroups()
-    {
-        using var conn = Open();
-        var list = new List<SampleGroup>();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT id, name, color, sort_order FROM groups ORDER BY sort_order, id";
-        using var reader = cmd.ExecuteReader();
-        while (reader.Read())
-            list.Add(new SampleGroup
-            {
-                Id = reader.GetInt64(0),
-                Name = reader.GetString(1),
-                Color = reader.GetString(2),
-                SortOrder = reader.GetInt32(3),
-            });
-        return list;
-    }
-
-    public long CreateGroup(string name, string color)
-    {
-        using var conn = Open();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            INSERT INTO groups (name, color, sort_order)
-            VALUES ($n, $c, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM groups))
-            """;
-        cmd.Parameters.AddWithValue("$n", name);
-        cmd.Parameters.AddWithValue("$c", color);
-        cmd.ExecuteNonQuery();
-        cmd.CommandText = "SELECT last_insert_rowid()";
-        return (long)cmd.ExecuteScalar()!;
-    }
-
-    public void RemoveGroup(long groupId)
-    {
-        using var conn = Open();
-        using var tx = conn.BeginTransaction();
-        using (var cmd = conn.CreateCommand())
-        {
-            cmd.Transaction = tx;
-            cmd.CommandText = "DELETE FROM sample_groups WHERE group_id = $id";
-            cmd.Parameters.AddWithValue("$id", groupId);
-            cmd.ExecuteNonQuery();
-        }
-        using (var cmd = conn.CreateCommand())
-        {
-            cmd.Transaction = tx;
-            cmd.CommandText = "DELETE FROM groups WHERE id = $id";
-            cmd.Parameters.AddWithValue("$id", groupId);
-            cmd.ExecuteNonQuery();
-        }
-        tx.Commit();
-    }
-
-    public void AssignGroup(long sampleId, long groupId)
-    {
-        using var conn = Open();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "INSERT OR IGNORE INTO sample_groups (sample_id, group_id) VALUES ($s, $g)";
-        cmd.Parameters.AddWithValue("$s", sampleId);
-        cmd.Parameters.AddWithValue("$g", groupId);
-        cmd.ExecuteNonQuery();
     }
 }

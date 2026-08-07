@@ -78,8 +78,6 @@
         <Grid Grid.Row="1" Margin="14,12,14,10">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
@@ -98,115 +96,108 @@
                 </Grid>
             </Border>
 
-            <!-- 分组按钮（超长时横向滚动/拖动） -->
-            <ScrollViewer Grid.Row="1" Margin="0,10,0,0"
-                          HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-                <StackPanel x:Name="GroupPanel" Orientation="Horizontal"/>
-            </ScrollViewer>
+            <!-- 内容层：主内容全宽 + 浮动导航栏（从左侧凸出，不占用主内容）+ 展开/收起按钮 -->
+            <Grid Grid.Row="1" Margin="0,10,0,0">
 
-            <!-- 全选行：上下分隔线；左=全选+已选数量，右=全部文件 -->
-            <Grid Grid.Row="2" Margin="2,10,0,0">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="1"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="1"/>
-                </Grid.RowDefinitions>
-                <Rectangle Grid.Row="0" Height="1" Fill="{StaticResource SeparatorBrush}"/>
-                <DockPanel Grid.Row="1" Margin="0,8,0,8" LastChildFill="False">
-                    <CheckBox x:Name="SelectAllCheck" Style="{StaticResource ListCheckBoxStyle}" IsThreeState="True"
-                              ToolTip="全选" DockPanel.Dock="Left" VerticalAlignment="Center"
-                              Click="SelectAllCheck_Click"/>
-                    <TextBlock x:Name="SelectedCountText" Text="已选择 0 个文件" FontSize="12"
-                               Foreground="{StaticResource TextSecondary}"
-                               VerticalAlignment="Center" Margin="6,0,0,0" DockPanel.Dock="Left"/>
-                    <TextBlock x:Name="FileCountText" Text="全部文件" FontSize="12"
-                               Foreground="{StaticResource TextSecondary}"
-                               VerticalAlignment="Center" DockPanel.Dock="Right"/>
-                </DockPanel>
-                <Rectangle Grid.Row="2" Height="1" Fill="{StaticResource SeparatorBrush}"/>
-            </Grid>
+                <!-- 主内容（全宽，不被导航栏挤压） -->
+                <Grid x:Name="MainContent">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
 
-            <!-- 文件列表 -->
-            <Grid Grid.Row="3" Margin="0,6,0,0">
-                <ListBox x:Name="FileList"
-                         Background="Transparent" BorderThickness="0"
-                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                         ScrollViewer.CanContentScroll="True"
-                         ItemContainerStyle="{StaticResource FileItemStyle}"
-                         SelectionMode="Extended"
-                         SelectionChanged="FileList_SelectionChanged"
-                         PreviewKeyDown="FileList_PreviewKeyDown"
-                         MouseDoubleClick="FileList_MouseDoubleClick"
-                         PreviewMouseMove="FileList_PreviewMouseMove"
-                         PreviewMouseLeftButtonDown="FileList_PreviewMouseLeftButtonDown"
-                         ContextMenuOpening="FileList_ContextMenuOpening">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
+                    <!-- 全选行：上下分隔线；左=全选+已选数量，右=当前文件夹文件数 -->
+                    <Grid Grid.Row="0" Margin="2,0,0,0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="1"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="1"/>
+                        </Grid.RowDefinitions>
+                        <Rectangle Grid.Row="0" Height="1" Fill="{StaticResource SeparatorBrush}"/>
+                        <DockPanel Grid.Row="1" Margin="0,8,0,8" LastChildFill="False">
+                            <CheckBox x:Name="SelectAllCheck" Style="{StaticResource ListCheckBoxStyle}" IsThreeState="True"
+                                      ToolTip="全选" DockPanel.Dock="Left" VerticalAlignment="Center"
+                                      Click="SelectAllCheck_Click"/>
+                            <TextBlock x:Name="SelectedCountText" Text="已选择 0 个文件" FontSize="12"
+                                       Foreground="{StaticResource TextSecondary}"
+                                       VerticalAlignment="Center" Margin="6,0,0,0" DockPanel.Dock="Left"/>
+                            <TextBlock x:Name="FileCountText" Text="全部文件" FontSize="12"
+                                       Foreground="{StaticResource TextSecondary}"
+                                       VerticalAlignment="Center" DockPanel.Dock="Right"/>
+                        </DockPanel>
+                        <Rectangle Grid.Row="2" Height="1" Fill="{StaticResource SeparatorBrush}"/>
+                    </Grid>
 
-                                <!-- 1. 选择复选框（最左） -->
-                                <CheckBox Grid.Column="0" Style="{StaticResource ListCheckBoxStyle}"
-                                          IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                                          Click="ItemCheckBox_Click" VerticalAlignment="Center"
-                                          Margin="0,0,4,0"/>
+                    <!-- 文件列表 -->
+                    <Grid Grid.Row="1" Margin="0,6,0,0">
+                        <ListBox x:Name="FileList"
+                                 Background="Transparent" BorderThickness="0"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 ScrollViewer.CanContentScroll="True"
+                                 ItemContainerStyle="{StaticResource FileItemStyle}"
+                                 SelectionMode="Extended"
+                                 SelectionChanged="FileList_SelectionChanged"
+                                 PreviewKeyDown="FileList_PreviewKeyDown"
+                                 MouseDoubleClick="FileList_MouseDoubleClick"
+                                 PreviewMouseMove="FileList_PreviewMouseMove"
+                                 PreviewMouseLeftButtonDown="FileList_PreviewMouseLeftButtonDown"
+                                 ContextMenuOpening="FileList_ContextMenuOpening">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
 
-                                <!-- 2. 名称 + 分组标签（整体向下微调 1px，与复选框光学校齐） -->
-                                <StackPanel Grid.Column="1" Margin="6,0,8,0" VerticalAlignment="Center"
-                                            RenderTransformOrigin="0.5,0.5">
-                                    <StackPanel.RenderTransform>
-                                        <TranslateTransform Y="1"/>
-                                    </StackPanel.RenderTransform>
-                                    <TextBlock FontSize="13" Foreground="{StaticResource TextPrimary}"
-                                               TextTrimming="CharacterEllipsis">
-                                        <Run Text="{Binding FileName, Mode=OneWay}"/>
-                                    </TextBlock>
-                                    <TextBlock Text="{Binding GroupNames}" FontSize="10.5"
-                                               Foreground="{StaticResource TextMuted}"
-                                               TextTrimming="CharacterEllipsis"
-                                               Margin="0,1,0,0">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="Visibility" Value="Visible"/>
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding GroupNames}" Value="">
-                                                        <Setter Property="Visibility" Value="Collapsed"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
-                                </StackPanel>
+                                        <!-- 1. 选择复选框（最左） -->
+                                        <CheckBox Grid.Column="0" Style="{StaticResource ListCheckBoxStyle}"
+                                                  IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                  Click="ItemCheckBox_Click" VerticalAlignment="Center"
+                                                  Margin="0,0,4,0"/>
 
-                                <!-- 时长 -->
-                                <TextBlock Grid.Column="2" Text="{Binding DurationText}" FontSize="11"
-                                           Foreground="{StaticResource TextMuted}" VerticalAlignment="Center"
-                                           FontFamily="Consolas"/>
-                            </Grid>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
+                                        <!-- 2. 名称（整体向下微调 1px，与复选框光学校齐） -->
+                                        <StackPanel Grid.Column="1" Margin="6,0,8,0" VerticalAlignment="Center"
+                                                    RenderTransformOrigin="0.5,0.5">
+                                            <StackPanel.RenderTransform>
+                                                <TranslateTransform Y="1"/>
+                                            </StackPanel.RenderTransform>
+                                            <TextBlock FontSize="13" Foreground="{StaticResource TextPrimary}"
+                                                       TextTrimming="CharacterEllipsis">
+                                                <Run Text="{Binding FileName, Mode=OneWay}"/>
+                                            </TextBlock>
+                                        </StackPanel>
 
-                <!-- 空状态提示 -->
-                <TextBlock Text="暂无音频文件&#10;点击「导入」或直接拖入 MP3 / WAV"
-                           HorizontalAlignment="Center" VerticalAlignment="Center"
-                           Foreground="{StaticResource TextMuted}" FontSize="13"
-                           TextAlignment="Center" IsHitTestVisible="False" LineHeight="22">
-                    <TextBlock.Style>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="Visibility" Value="Collapsed"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding Items.Count, ElementName=FileList}" Value="0">
-                                    <Setter Property="Visibility" Value="Visible"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBlock.Style>
-                </TextBlock>
+                                        <!-- 时长 -->
+                                        <TextBlock Grid.Column="2" Text="{Binding DurationText}" FontSize="11"
+                                                   Foreground="{StaticResource TextMuted}" VerticalAlignment="Center"
+                                                   FontFamily="Consolas"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+
+                        <!-- 空状态提示 -->
+                        <TextBlock Text="此文件夹暂无音频&#10;点击「导入」或直接拖入 MP3 / WAV"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   Foreground="{StaticResource TextMuted}" FontSize="13"
+                                   TextAlignment="Center" IsHitTestVisible="False" LineHeight="22">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Items.Count, ElementName=FileList}" Value="0">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Grid>
+                </Grid>
+
+                <!-- 主内容全宽；展开/收起按钮由独立悬浮窗承担（NavButtonWindow） -->
             </Grid>
         </Grid>
 

@@ -1,0 +1,9 @@
+<Window x:Class="voboX.Windows.NavButtonWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="导航" Width="22" Height="48" WindowStyle="None" ShowInTaskbar="False"
+        ShowActivated="False" AllowsTransparency="True" Background="Transparent"
+        ResizeMode="NoResize">
+    <Button x:Name="Btn" Style="{StaticResource WinCtrlButtonStyle}" Tag="&#xE76B;"
+            ToolTip="展开导航栏" Click="Btn_Click"/>
+</Window>
