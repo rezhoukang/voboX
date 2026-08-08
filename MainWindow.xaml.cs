@@ -34,6 +34,11 @@ public partial class MainWindow : Window
     private bool _suppressDragClick;   // 右键菜单弹出后，忽略下一次左键拖拽（防误复制）
     private readonly ContextMenu _fileMenu = new(); // 复用同一菜单实例，避免右键菜单闪烁
 
+    // 搜索范围下拉：当前视图（默认）/ 全局搜索（整个 Box 排除 tempBox）/ voboX搜索 索引目录
+    private enum SearchScope { CurrentView, Global, Vobox }
+    private SearchScope _searchScope = SearchScope.CurrentView;
+    private readonly ContextMenu _scopeMenu = new();
+
     public MainWindow()
     {
         InitializeComponent();
@@ -190,9 +195,24 @@ public partial class MainWindow : Window
             FolderService.EnsureUncategorized();
 
         var keyword = SearchBox.Text.Trim();
-        var items = FolderService.GetFolderItems(_currentFolder);
         _allItems.Clear();
-        _allItems.AddRange(items);
+
+        if (string.IsNullOrEmpty(keyword))
+        {
+            // 搜索框无文字：正常展示当前文件夹视图
+            _allItems.AddRange(FolderService.GetFolderItems(_currentFolder));
+        }
+        else
+        {
+            // 有文字：按所选搜索范围收集（当前视图 / 全局 Box 排除 tempBox / voboX 索引目录树）
+            var pool = _searchScope switch
+            {
+                SearchScope.Global => FolderService.GetTreeItems(FolderService.BoxRoot, "tempBox"),
+                SearchScope.Vobox => FolderService.GetTreeItems(FolderService.Root),
+                _ => FolderService.GetFolderItems(_currentFolder),
+            };
+            _allItems.AddRange(pool.Where(a => a.FileName.Contains(keyword, StringComparison.OrdinalIgnoreCase)));
+        }
 
         // 按设置的排序规则排序（正反都有）：GetFolderItems 只保证物理+log 去重，顺序这里重排
         IEnumerable<AudioItem> sorted = _settings.Settings.SortRule switch
@@ -212,12 +232,73 @@ public partial class MainWindow : Window
 
         // 必须赋新实例：ItemsSource 引用相同会被 WPF 视为无变化，列表不会刷新
         FileList.ItemsSource = visible.ToList();
-        FileCountText.Text = $"{Path.GetFileName(_currentFolder.TrimEnd(Path.DirectorySeparatorChar))}（{visible.Count()}）";
+        FileCountText.Text = string.IsNullOrEmpty(keyword)
+            ? $"{Path.GetFileName(_currentFolder.TrimEnd(Path.DirectorySeparatorChar))}（{visible.Count()}）"
+            : $"{ScopeLabel()}（{visible.Count()}）";
         SelectedCountText.Text = "已选择 0 个文件";
         UpdateSelectAllState();
     }
 
     private void SearchBox_TextChanged(object sender, TextChangedEventArgs e) => ReloadSamples();
+
+    // ================= 搜索范围下拉（当前视图 / 全局搜索 / voboX） =================
+
+    /// <summary>点搜索框右侧下拉三角：弹出范围菜单，勾选当前项</summary>
+    private void SearchScopeButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_scopeMenu.Items.Count == 0)
+        {
+            foreach (var (scope, label) in new[]
+            {
+                (SearchScope.Global, "全局搜索"),
+                (SearchScope.Vobox, "voboX搜索"),
+            })
+            {
+                var mi = new MenuItem { Header = label, Tag = scope, IsCheckable = true };
+                mi.Click += (s, _) => SetSearchScope(scope);
+                _scopeMenu.Items.Add(mi);
+            }
+        }
+        // 同步勾选当前范围
+        foreach (MenuItem mi in _scopeMenu.Items)
+            mi.IsChecked = (SearchScope)mi.Tag == _searchScope;
+        _scopeMenu.PlacementTarget = SearchScopeButton;
+        _scopeMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+        _scopeMenu.IsOpen = true;
+    }
+
+    /// <summary>切换搜索范围：更新标签、提示文字，并按新范围立即刷新（搜索框有字时）</summary>
+    private void SetSearchScope(SearchScope scope)
+    {
+        _searchScope = scope;
+        UpdateScopeChip();
+        SearchScopeButton.ToolTip = "搜索范围：" + ScopeLabel();
+        ReloadSamples();
+    }
+
+    /// <summary>范围标签显示/隐藏：非默认（全局/voboX搜索）才显示，含 X 清除按钮</summary>
+    private void UpdateScopeChip()
+    {
+        bool active = _searchScope != SearchScope.CurrentView;
+        ScopeChip.Visibility = active ? Visibility.Visible : Visibility.Collapsed;
+        if (active) ScopeChipText.Text = ScopeLabel();
+    }
+
+    /// <summary>点范围标签上的 X：恢复默认（当前视图）</summary>
+    private void ScopeChipClear_Click(object sender, RoutedEventArgs e)
+    {
+        _searchScope = SearchScope.CurrentView;
+        UpdateScopeChip();
+        SearchScopeButton.ToolTip = "搜索范围：当前视图";
+        ReloadSamples();
+    }
+
+    private string ScopeLabel() => _searchScope switch
+    {
+        SearchScope.Global => "全局搜索",
+        SearchScope.Vobox => "voboX搜索",
+        _ => "当前视图",
+    };
 
     private void SelectAllCheck_Click(object sender, RoutedEventArgs e)
     {
@@ -257,6 +338,8 @@ public partial class MainWindow : Window
             ImportPaths(dlg.FileNames, _currentFolder);
     }
 
+    private bool SearchHasText => SearchBox.Text.Trim().Length > 0;
+
     private void Window_DragOver(object sender, DragEventArgs e)
     {
         e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop)
@@ -266,24 +349,39 @@ public partial class MainWindow : Window
 
     private void Window_Drop(object sender, DragEventArgs e)
     {
+        // 搜索状态下禁止拖入文件到展示区：提示并放弃导入
+        if (SearchHasText)
+        {
+            MessageBox.Show(this, "搜索状态下无法导入文件，请先清空搜索框后再拖入。", "voboX");
+            return;
+        }
         if (e.Data.GetData(DataFormats.FileDrop) is string[] paths && paths.Length > 0)
             ImportPaths(paths, _currentFolder);
     }
 
-    /// <summary>导入到指定文件夹：目录镜像时保留外层文件夹名；文件登记 log</summary>
+    /// <summary>导入到指定文件夹：目录镜像时保留外层文件夹名；文件登记 log；重名（物理+log）则跳过并提示</summary>
     private void ImportPaths(IEnumerable<string> paths, string targetFolder)
     {
         var tempboxDir = _settings.ResolveTempboxDir();
-        int added = 0;
+        int added = 0, dupes = 0;
+        var dupNames = new List<string>();
         foreach (var p in paths.Distinct(StringComparer.OrdinalIgnoreCase))
         {
             if (Directory.Exists(p))
             {
                 // 目录：在目标下保留外层文件夹名并镜像其子目录结构，音频登记 log
-                added += ImportDirectory(p, targetFolder, tempboxDir);
+                var (n, d, names) = ImportDirectory(p, targetFolder, tempboxDir);
+                added += n; dupes += d; dupNames.AddRange(names);
             }
             else if (File.Exists(p) && IsAudioFile(p) && !IsInsideDirectory(p, tempboxDir))
             {
+                // 重名检查：物理 wav + log 索引
+                if (FolderService.FindDuplicateName(targetFolder, p) is not null)
+                {
+                    dupes++;
+                    dupNames.Add(Path.GetFileName(p));
+                    continue;
+                }
                 try
                 {
                     FolderService.AddIndexLog(targetFolder, p);
@@ -296,16 +394,26 @@ public partial class MainWindow : Window
         // 树里出现镜像出的子文件夹
         if (_navWindow is not null && _navExpanded)
             _navWindow.LoadFolderTree();
+        if (dupes > 0)
+            MessageBox.Show(this,
+                $"有 {dupes} 个文件因重名被跳过：\n\n"
+                + string.Join("\n", dupNames.Take(10))
+                + (dupNames.Count > 10 ? $"\n…等 {dupNames.Count} 个" : "")
+                + "\n\n已在目标文件夹存在同名音频（含物理文件与 log 索引）。",
+                "voboX", MessageBoxButton.OK, MessageBoxImage.Warning);
         FileCountText.Text = added > 0 ? $"已登记 {added} 个文件" : "未发现可导入的音频";
     }
 
     /// <summary>
     /// 导入目录：在 targetFolder 下创建同名的外层文件夹（保留 A/B 形式），
     /// 再按相对结构镜像其子目录，每个音频登记 log（不复制物理文件）。
+    /// 返回：(成功登记数, 重名跳过数, 重名文件名列表)
     /// </summary>
-    private static int ImportDirectory(string sourceDir, string targetFolder, string tempboxDir)
+    private static (int added, int dupes, List<string> dupNames) ImportDirectory(
+        string sourceDir, string targetFolder, string tempboxDir)
     {
-        int n = 0;
+        int added = 0, dupes = 0;
+        var dupNames = new List<string>();
         var outer = Path.Combine(targetFolder, Path.GetFileName(sourceDir.TrimEnd(Path.DirectorySeparatorChar)));
         foreach (var file in Directory.EnumerateFiles(sourceDir, "*.*", SearchOption.AllDirectories))
         {
@@ -313,14 +421,21 @@ public partial class MainWindow : Window
             // 相对 sourceDir 的子目录（空 = 在外层文件夹下）
             var relDir = Path.GetRelativePath(sourceDir, Path.GetDirectoryName(file) ?? sourceDir);
             var destDir = string.IsNullOrEmpty(relDir) ? outer : Path.Combine(outer, relDir);
+            // 重名检查：目标目录已有同名（物理+log）
+            if (FolderService.FindDuplicateName(destDir, file) is not null)
+            {
+                dupes++;
+                dupNames.Add(Path.GetFileName(file));
+                continue;
+            }
             try
             {
                 FolderService.AddIndexLog(destDir, file); // 自动创建 destDir 及其 log
-                n++;
+                added++;
             }
             catch { }
         }
-        return n;
+        return (added, dupes, dupNames);
     }
 
     private static bool IsAudioFile(string path)
@@ -365,7 +480,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var path = Path.Combine(_settings.ResolveRecordboxDir(), $"{DateTime.Now:yyyyMMdd_HHmmss}.wav");
+        var path = Path.Combine(_settings.ResolveRecordboxDir(), $"{DateTime.Now:yyyyMMdd_HHmmss}_record.wav");
         try
         {
             _recorder.Start(path, _settings.Settings.RecordDeviceIndex);

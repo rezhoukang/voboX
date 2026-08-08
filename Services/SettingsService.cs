@@ -45,25 +45,15 @@ public class SettingsService
         }
     }
 
-    /// <summary>获取实际生效的裁剪保存目录（空 = 默认 Box\Cutbox）</summary>
-    public string ResolveCropDir()
-    {
-        if (!string.IsNullOrWhiteSpace(Settings.CropSavePath)) return Settings.CropSavePath;
-        return AppPaths.DefaultCutboxPath;
-    }
+    /// <summary>裁剪保存目录：固定在 Box\cutBox，不可修改</summary>
+    public string ResolveCropDir() => AppPaths.DefaultCutboxPath;
 
-    /// <summary>获取实际生效的 Tempbox 目录</summary>
-    public string ResolveTempboxDir()
-    {
-        if (!string.IsNullOrWhiteSpace(Settings.TempboxPath)) return Settings.TempboxPath;
-        return AppPaths.DefaultTempboxPath;
-    }
+    /// <summary>Tempbox 目录：固定在 Box\tempBox，不可修改</summary>
+    public string ResolveTempboxDir() => AppPaths.DefaultTempboxPath;
 
-    /// <summary>获取实际生效的 voboX 根目录（空 = 默认 Box\voboX）</summary>
-    public string ResolveVoboxDir()
-        => string.IsNullOrWhiteSpace(Settings.VoboxPath) ? AppPaths.DefaultSaveBoxPath : Settings.VoboxPath.Trim();
+    /// <summary>voboX 根目录：固定在 Box\voboX，不可修改</summary>
+    public string ResolveVoboxDir() => AppPaths.DefaultSaveBoxPath;
 
-    /// <summary>获取实际生效的录音目录（空 = 默认 Box\recordBox）</summary>
-    public string ResolveRecordboxDir()
-        => string.IsNullOrWhiteSpace(Settings.RecordboxPath) ? AppPaths.RecordingsDir : Settings.RecordboxPath.Trim();
+    /// <summary>录音目录：固定在 Box\recordBox，不可修改</summary>
+    public string ResolveRecordboxDir() => AppPaths.RecordingsDir;
 }

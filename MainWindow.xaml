@@ -81,18 +81,58 @@
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <!-- 搜索框 -->
+            <!-- 搜索框（右侧：搜索范围标签 + 下拉三角） -->
             <Border Grid.Row="0" Background="{StaticResource PanelBg}" CornerRadius="8"
                     BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="10,0">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0" Text="&#xE721;" FontFamily="Segoe MDL2 Assets"
                                Foreground="{StaticResource TextMuted}" FontSize="14" VerticalAlignment="Center"/>
                     <TextBox x:Name="SearchBox" Grid.Column="1" Style="{StaticResource SearchBoxStyle}"
-                             Margin="8,0,0,0" TextChanged="SearchBox_TextChanged"/>
+                             Margin="8,0,4,0" TextChanged="SearchBox_TextChanged"/>
+                    <!-- 选中全局/voboX搜索后显示的范围标签：灰色圆角 + X 清除 -->
+                    <Border x:Name="ScopeChip" Grid.Column="2" Visibility="Collapsed"
+                            Background="#FF3A3A42" CornerRadius="11" Margin="0,3,6,3" Padding="10,1,4,1"
+                            VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock x:Name="ScopeChipText" Text="全局搜索" FontSize="11.5"
+                                       VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
+                            <Button x:Name="ScopeChipClear" Click="ScopeChipClear_Click"
+                                    Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                    Width="18" Height="18" Padding="0" Margin="8,0,0,0"
+                                    VerticalAlignment="Center" ToolTip="恢复默认（当前视图）">
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Setter Property="Background" Value="Transparent"/>
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="5">
+                                                        <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="9"
+                                                                   Foreground="{StaticResource TextSecondary}"
+                                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="bd" Property="Background" Value="#FF4A4A54"/>
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                        </StackPanel>
+                    </Border>
+                    <Button x:Name="SearchScopeButton" Grid.Column="3" Click="SearchScopeButton_Click"
+                            Style="{StaticResource ToolButtonStyle}" Tag="&#xE70D;" Content=""
+                            Padding="4,4" ToolTip="搜索范围：当前视图"/>
                 </Grid>
             </Border>
 

@@ -163,65 +163,11 @@
                     </ComboBox.ItemTemplate>
                 </ComboBox>
 
-                <TextBlock Text="裁剪保存路径（留空 = Box\cutBox）"
+                <!-- Box 下路径全部固定，提供一键打开 Box 文件夹 -->
+                <TextBlock Text="Box 路径固定（voboX / recordBox / cutBox / tempBox）"
                            FontSize="11" Foreground="{StaticResource SettingsLabelBrush}"/>
-                <Grid Margin="0,5,0,14">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBox x:Name="CropPathBox" Style="{StaticResource SettingsPathBoxStyle}"/>
-                    <Button Grid.Column="1" Style="{StaticResource ToolButtonStyle}" Content="浏览…"
-                            Margin="6,0,0,0" Click="CropBrowse_Click"/>
-                    <Button Grid.Column="2" Style="{StaticResource ToolButtonStyle}" Content="打开文件夹"
-                            Margin="6,0,0,0" Click="CropOpen_Click"/>
-                </Grid>
-
-                <TextBlock Text="tempBox 路径（留空 = Box\tempBox）"
-                           FontSize="11" Foreground="{StaticResource SettingsLabelBrush}"/>
-                <Grid Margin="0,5,0,8">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBox x:Name="TempboxBox" Style="{StaticResource SettingsPathBoxStyle}"/>
-                    <Button Grid.Column="1" Style="{StaticResource ToolButtonStyle}" Content="浏览…"
-                            Margin="6,0,0,0" Click="TempboxBrowse_Click"/>
-                    <Button Grid.Column="2" Style="{StaticResource ToolButtonStyle}" Content="打开文件夹"
-                            Margin="6,0,0,0" Click="TempboxOpen_Click"/>
-                </Grid>
-
-                <TextBlock Text="voboX 路径（留空 = Box\voboX）"
-                           FontSize="11" Foreground="{StaticResource SettingsLabelBrush}"/>
-                <Grid Margin="0,5,0,14">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBox x:Name="VoboxBox" Style="{StaticResource SettingsPathBoxStyle}"/>
-                    <Button Grid.Column="1" Style="{StaticResource ToolButtonStyle}" Content="浏览…"
-                            Margin="6,0,0,0" Click="VoboxBrowse_Click"/>
-                    <Button Grid.Column="2" Style="{StaticResource ToolButtonStyle}" Content="打开文件夹"
-                            Margin="6,0,0,0" Click="VoboxOpen_Click"/>
-                </Grid>
-
-                <TextBlock Text="recordBox 路径（留空 = Box\recordBox）"
-                           FontSize="11" Foreground="{StaticResource SettingsLabelBrush}"/>
-                <Grid Margin="0,5,0,8">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBox x:Name="RecordboxBox" Style="{StaticResource SettingsPathBoxStyle}"/>
-                    <Button Grid.Column="1" Style="{StaticResource ToolButtonStyle}" Content="浏览…"
-                            Margin="6,0,0,0" Click="RecordboxBrowse_Click"/>
-                    <Button Grid.Column="2" Style="{StaticResource ToolButtonStyle}" Content="打开文件夹"
-                            Margin="6,0,0,0" Click="RecordboxOpen_Click"/>
-                </Grid>
+                <Button Style="{StaticResource ToolButtonStyle}" Content="打开 Box 文件夹"
+                        HorizontalAlignment="Left" Margin="0,5,0,14" Click="OpenBoxFolder_Click"/>
 
                 <CheckBox x:Name="AutoStartCheck" Content="开机自启动"
                           Foreground="{StaticResource TextPrimary}" Margin="0,10,0,0"/>

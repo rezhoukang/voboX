@@ -112,6 +112,38 @@ public static class FolderService
         File.WriteAllLines(log, lines, new System.Text.UTF8Encoding(false));
     }
 
+    /// <summary>
+    /// 查找文件夹内与 sourcePath 同名的音频（物理 wav + log 索引中仍存在的源文件）。
+    /// 返回已存在的那个路径；无重名返回 null。供导入前重名检查。
+    /// </summary>
+    public static string? FindDuplicateName(string folderDir, string sourcePath)
+    {
+        var name = Path.GetFileName(sourcePath);
+        if (string.IsNullOrEmpty(name)) return null;
+
+        // 物理文件
+        if (Directory.Exists(folderDir))
+        {
+            foreach (var f in Directory.EnumerateFiles(folderDir, "*.*"))
+                if (IsAudio(f) && Path.GetFileName(f).Equals(name, StringComparison.OrdinalIgnoreCase))
+                    return f;
+        }
+
+        // log 索引（源文件仍存在才视为同名的现存条目）
+        var log = LogFile(folderDir);
+        if (File.Exists(log))
+        {
+            foreach (var line in File.ReadAllLines(log))
+            {
+                var src = line.Trim();
+                if (src.Length == 0) continue;
+                if (File.Exists(src) && Path.GetFileName(src).Equals(name, StringComparison.OrdinalIgnoreCase))
+                    return src;
+            }
+        }
+        return null;
+    }
+
     // ================= 检索当前文件夹（打开即检索：搜到=有） =================
 
     /// <summary>当前文件夹内容 = 物理音频文件 + log 索引（源文件真实存在才显示）</summary>
@@ -140,6 +172,54 @@ public static class FolderService
             .GroupBy(a => a.FilePath, StringComparer.OrdinalIgnoreCase)
             .Select(g => g.First())
             .ToList(); // 保持原始顺序（物理文件在前、log 索引在后），排序交给 MainWindow 按规则处理
+    }
+
+    // ================= 树 / 全局搜索 =================
+
+    /// <summary>Box 根目录（voboX 索引目录的上一级；含 recordBox / cutBox / tempBox / voboX）</summary>
+    public static string BoxRoot =>
+        Path.GetDirectoryName(Root.TrimEnd(Path.DirectorySeparatorChar)) ?? Root;
+
+    /// <summary>
+    /// 递归收集目录树下的音频项：物理 wav + 各层 log 索引（源文件真实存在才显示）。
+    /// 供「全局搜索（整个 Box，排除 tempBox）」与「voboX搜索（索引目录树）」范围使用，按路径去重。
+    /// </summary>
+    public static List<AudioItem> GetTreeItems(string rootDir, params string[] skipSubDirNames)
+    {
+        var items = new List<AudioItem>();
+        if (!Directory.Exists(rootDir)) return items; // 目录不存在则空
+        CollectTree(rootDir, items, skipSubDirNames);
+        return items
+            .GroupBy(a => a.FilePath, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .ToList();
+    }
+
+    private static void CollectTree(string dir, List<AudioItem> items, string[] skipSubDirNames)
+    {
+        // 物理音频（wav）
+        foreach (var f in Directory.EnumerateFiles(dir, "*.*"))
+            if (IsAudio(f)) items.Add(BuildItem(f));
+
+        // log 外部索引（源文件存在才显示）
+        var log = LogFile(dir);
+        if (File.Exists(log))
+        {
+            foreach (var line in File.ReadAllLines(log))
+            {
+                var src = line.Trim();
+                if (src.Length == 0) continue;
+                if (File.Exists(src)) items.Add(BuildItem(src));
+            }
+        }
+
+        // 子文件夹递归（跳过指定目录，如 tempBox）
+        foreach (var sub in Directory.GetDirectories(dir))
+        {
+            var name = Path.GetFileName(sub.TrimEnd(Path.DirectorySeparatorChar));
+            if (skipSubDirNames.Any(s => s.Equals(name, StringComparison.OrdinalIgnoreCase))) continue;
+            CollectTree(sub, items, skipSubDirNames);
+        }
     }
 
     // ================= 拷贝真实文件到 voboX =================
