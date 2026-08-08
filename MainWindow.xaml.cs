@@ -460,7 +460,7 @@ public partial class MainWindow : Window
     private static bool IsAudioFile(string path)
     {
         var ext = Path.GetExtension(path).ToLowerInvariant();
-        return ext == ".mp3" || ext == ".wav";
+        return ext == ".wav"; // 仅支持 WAV
     }
 
     /// <summary>判断文件是否位于某目录（含子目录）内</summary>
