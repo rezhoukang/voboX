@@ -5,6 +5,8 @@ obj/
 *.suo
 *.userosscache
 *.sln.docstates
+# WPF 编译临时工程（每次构建随机后缀，勿入库）
+*_wpftmp.csproj
 
 # ===================== voboX 运行时数据（不入库） =====================
 # 拖出副本 / 裁剪输出目录（Box\Tempbox / Box\Cutbox）
