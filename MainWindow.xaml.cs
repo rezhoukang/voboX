@@ -216,7 +216,7 @@ public partial class MainWindow : Window
             var matched = pool
                 .Where(a => _pinyinEnabled
                     ? PinyinService.Matches(a.FileName, keyword)
-                    : a.FileName.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+                    : Path.GetFileNameWithoutExtension(a.FileName).Contains(keyword, StringComparison.OrdinalIgnoreCase))
                 .ToList();
             // 只对命中的文件读时长（从 1000 次文件打开降到命中数）
             foreach (var m in matched)
@@ -240,7 +240,7 @@ public partial class MainWindow : Window
             ? sorted
             : sorted.Where(a => _pinyinEnabled
                 ? PinyinService.Matches(a.FileName, keyword)
-                : a.FileName.Contains(keyword, StringComparison.OrdinalIgnoreCase));
+                : Path.GetFileNameWithoutExtension(a.FileName).Contains(keyword, StringComparison.OrdinalIgnoreCase));
 
         // 必须赋新实例：ItemsSource 引用相同会被 WPF 视为无变化，列表不会刷新
         FileList.ItemsSource = visible.ToList();

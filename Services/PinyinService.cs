@@ -63,8 +63,9 @@ public static class PinyinService
     /// <summary>判断文件名是否命中关键字：原文包含（恒生效）或全拼包含</summary>
     public static bool Matches(string fileName, string keyword)
     {
-        // 1. 原始文件名包含（忽略大小写），保持原行为
-        if (fileName.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+        // 1. 原文匹配：用去扩展名后的名字（排除 .wav/.mp3 后缀干扰，搜 "wav" 不应命中）
+        var baseName = Path.GetFileNameWithoutExtension(fileName);
+        if (baseName.Contains(keyword, StringComparison.OrdinalIgnoreCase))
             return true;
 
         // 2. 全拼匹配（小写比较）
