@@ -10,6 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="TinyPinyin.Net" Version="1.0.2" />
     <Resource Include="Assets\voboX.ico" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.10" />
     <PackageReference Include="NAudio" Version="2.3.0" />

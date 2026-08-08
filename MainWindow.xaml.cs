@@ -2,6 +2,7 @@
 using System.Runtime.Versioning;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using voboX.Models;
@@ -38,6 +39,7 @@ public partial class MainWindow : Window
     private enum SearchScope { CurrentView, Global, Vobox }
     private SearchScope _searchScope = SearchScope.CurrentView;
     private readonly ContextMenu _scopeMenu = new();
+    private bool _pinyinEnabled; // 「拼」开关：开启后搜索支持全拼匹配
 
     public MainWindow()
     {
@@ -212,7 +214,9 @@ public partial class MainWindow : Window
                 _ => FolderService.GetFolderPaths(_currentFolder),
             };
             var matched = pool
-                .Where(a => a.FileName.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+                .Where(a => _pinyinEnabled
+                    ? PinyinService.Matches(a.FileName, keyword)
+                    : a.FileName.Contains(keyword, StringComparison.OrdinalIgnoreCase))
                 .ToList();
             // 只对命中的文件读时长（从 1000 次文件打开降到命中数）
             foreach (var m in matched)
@@ -234,7 +238,9 @@ public partial class MainWindow : Window
 
         var visible = string.IsNullOrEmpty(keyword)
             ? sorted
-            : sorted.Where(a => a.FileName.Contains(keyword, StringComparison.OrdinalIgnoreCase));
+            : sorted.Where(a => _pinyinEnabled
+                ? PinyinService.Matches(a.FileName, keyword)
+                : a.FileName.Contains(keyword, StringComparison.OrdinalIgnoreCase));
 
         // 必须赋新实例：ItemsSource 引用相同会被 WPF 视为无变化，列表不会刷新
         FileList.ItemsSource = visible.ToList();
@@ -246,6 +252,15 @@ public partial class MainWindow : Window
     }
 
     private void SearchBox_TextChanged(object sender, TextChangedEventArgs e) => ReloadSamples();
+
+    // ================= 拼音检索开关（拼按钮） =================
+
+    /// <summary>点击「拼」开关：以按钮当前选中状态为准同步开关，并刷新列表（比 Checked/Unchecked 事件更稳）</summary>
+    private void PinyinToggle_Click(object sender, RoutedEventArgs e)
+    {
+        _pinyinEnabled = PinyinToggle.IsChecked == true;
+        ReloadSamples();
+    }
 
     // ================= 搜索范围下拉（当前视图 / 全局搜索 / voboX） =================
 
@@ -533,19 +548,15 @@ public partial class MainWindow : Window
     // ================= 窗口控制 =================
 
     /// <summary>
-    /// 标题栏手动拖拽：点在按钮上不拖拽（交给按钮处理）；空白处拖动窗口；双击最大化/还原。
+    /// 标题栏手动拖拽：点在按钮上不拖拽（交给按钮处理）；空白处拖动窗口。
+    /// 注意：必须是 ButtonBase（Button/ToggleButton 都算），否则 ToggleButton 会被误判成空白区拖拽。
+    /// 双击最大化已按需求移除。
     /// </summary>
     private void TitleBar_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        // 按在可交互控件（按钮等）上 → 不拖拽，交给按钮正常处理点击
-        if (e.OriginalSource is DependencyObject source && FindAncestor<Button>(source) is not null)
+        // 按在可交互控件（Button/ToggleButton 等）上 → 不拖拽，交给按钮正常处理点击
+        if (e.OriginalSource is DependencyObject source && FindAncestor<ButtonBase>(source) is not null)
             return;
-
-        if (e.ClickCount == 2)
-        {
-            WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
-            return;
-        }
 
         try { DragMove(); } catch { }
     }

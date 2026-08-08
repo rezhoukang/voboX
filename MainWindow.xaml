@@ -63,8 +63,11 @@
                             Margin="2,0,0,0" Click="Import_Click"/>
                 </StackPanel>
 
-                <!-- 右上：设置 / 钉子 / 最小化 / 关闭 -->
+                <!-- 右上：拼 / 设置 / 钉子 / 最小化 / 关闭 -->
                 <StackPanel Grid.Column="3" Orientation="Horizontal">
+                    <ToggleButton x:Name="PinyinToggle" Style="{StaticResource PinyinToggleStyle}"
+                                  Click="PinyinToggle_Click"
+                                  ToolTip="拼音检索：开启后可按全拼搜索（如 yinyue 搜「音乐」）"/>
                     <Button x:Name="SettingsButton" Style="{StaticResource WinCtrlButtonStyle}" Tag="&#xE713;" Click="Settings_Click"/>
                     <Button x:Name="PinButton" Style="{StaticResource WinCtrlButtonStyle}" Tag="&#xE77A;"
                             Click="Pin_Click" MouseEnter="PinButton_MouseEnter" MouseLeave="PinButton_MouseLeave"/>

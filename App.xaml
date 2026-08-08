@@ -99,6 +99,41 @@
             </Style.Triggers>
         </Style>
 
+        <!-- ================= 拼音检索开关（拼按钮）：开启后高亮 ================= -->
+        <Style x:Key="PinyinToggleStyle" TargetType="ToggleButton">
+            <Setter Property="Width" Value="40"/>
+            <Setter Property="Height" Value="42"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{StaticResource TextSecondary}"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Grid>
+                            <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="6" Margin="2"/>
+                            <Border x:Name="hoverOverlay" Background="#33FFFFFF" Opacity="0" CornerRadius="6" Margin="2"/>
+                            <TextBlock Text="拼" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Foreground="{TemplateBinding Foreground}" FontSize="12.5"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="hoverOverlay" Property="Opacity" Value="1"/>
+                                <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="hoverOverlay" Property="Background" Value="#4DFFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{StaticResource AccentBrush}"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- ================= 分组 chip ================= -->
         <Style x:Key="ChipStyle" TargetType="Button">
             <Setter Property="Foreground" Value="{StaticResource TextSecondary}"/>
