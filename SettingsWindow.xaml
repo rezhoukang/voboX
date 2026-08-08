@@ -1,7 +1,7 @@
 <Window x:Class="voboX.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="设置" Width="430" SizeToContent="Height"
+        Title="设置" Width="360" SizeToContent="Height"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
         WindowStyle="None" Background="{StaticResource WindowBg}"
         FontFamily="Microsoft YaHei UI" Foreground="{StaticResource TextPrimary}">
@@ -163,14 +163,17 @@
                     </ComboBox.ItemTemplate>
                 </ComboBox>
 
-                <!-- Box 下路径全部固定，提供一键打开 Box 文件夹 -->
-                <TextBlock Text="Box 路径固定（voboX / recordBox / cutBox / tempBox）"
-                           FontSize="11" Foreground="{StaticResource SettingsLabelBrush}"/>
-                <Button Style="{StaticResource ToolButtonStyle}" Content="打开 Box 文件夹"
-                        HorizontalAlignment="Left" Margin="0,5,0,14" Click="OpenBoxFolder_Click"/>
-
-                <CheckBox x:Name="AutoStartCheck" Content="开机自启动"
-                          Foreground="{StaticResource TextPrimary}" Margin="0,10,0,0"/>
+                <!-- 打开 Box 文件夹（左）+ 开机自启动（右） -->
+                <Grid Margin="0,10,0,14">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Button Grid.Column="0" Style="{StaticResource ToolButtonStyle}" Content="打开 Box 文件夹"
+                            HorizontalAlignment="Left" Click="OpenBoxFolder_Click"/>
+                    <CheckBox x:Name="AutoStartCheck" Grid.Column="1" Content="开机自启动"
+                              Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center"/>
+                </Grid>
 
                 <TextBlock Text="拷贝真实文件到 voboX"
                            FontSize="11" Foreground="{StaticResource SettingsLabelBrush}" Margin="0,16,0,0"/>
