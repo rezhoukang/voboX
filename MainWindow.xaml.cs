@@ -293,7 +293,6 @@ public partial class MainWindow : Window
     {
         _searchScope = scope;
         UpdateScopeChip();
-        SearchScopeButton.ToolTip = "搜索范围：" + ScopeLabel();
         ReloadSamples();
     }
 
@@ -310,7 +309,6 @@ public partial class MainWindow : Window
     {
         _searchScope = SearchScope.CurrentView;
         UpdateScopeChip();
-        SearchScopeButton.ToolTip = "搜索范围：当前视图";
         ReloadSamples();
     }
 

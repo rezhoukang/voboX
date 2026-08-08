@@ -163,16 +163,17 @@
                     </ComboBox.ItemTemplate>
                 </ComboBox>
 
-                <!-- 打开 Box 文件夹（左对齐）+ 清空 TempBox（右对齐） -->
+                <!-- 打开 Box 文件夹（左对齐）+ 清空 tempBox（右对齐） -->
                 <Grid Margin="0,5,0,14">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <Button Grid.Column="0" Style="{StaticResource ToolButtonStyle}" Content="打开 Box 文件夹"
+                            Padding="14,6" FontSize="12"
                             HorizontalAlignment="Left" Click="OpenBoxFolder_Click"/>
-                    <Button Grid.Column="1" Style="{StaticResource ToolButtonStyle}" Content="清空 TempBox"
-                            Click="ClearTempbox_Click"/>
+                    <Button Grid.Column="1" Style="{StaticResource ToolButtonStyle}" Content="清空 tempBox"
+                            Padding="14,6" FontSize="12" Click="ClearTempbox_Click"/>
                 </Grid>
 
                 <TextBlock Text="拷贝真实文件到 voboX"
@@ -183,7 +184,8 @@
                            Margin="0,4,0,0" TextWrapping="Wrap"/>
                 <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                     <Button Style="{StaticResource SettingsSaveButtonStyle}" Content="拷贝" Click="CopyToVobox_Click"/>
-                    <Button Style="{StaticResource ToolButtonStyle}" Content="打开文件夹" Margin="6,0,0,0" Click="SaveBoxOpen_Click"/>
+                    <Button Style="{StaticResource ToolButtonStyle}" Content="打开文件夹" Padding="14,6" FontSize="12"
+                            Margin="6,0,0,0" Click="SaveBoxOpen_Click"/>
                 </StackPanel>
 
                 <!-- 底部：左 = 开机自启动；右 = 取消 / 保存 -->
@@ -195,7 +197,7 @@
                     <CheckBox Grid.Column="0" x:Name="AutoStartCheck" Content="开机自启动"
                               Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center"/>
                     <StackPanel Grid.Column="1" Orientation="Horizontal">
-                        <Button Style="{StaticResource ToolButtonStyle}" Content="取消" Click="Cancel_Click"/>
+                        <Button Style="{StaticResource ToolButtonStyle}" Content="取消" Padding="14,6" FontSize="12" Click="Cancel_Click"/>
                         <Button Style="{StaticResource SettingsSaveButtonStyle}" Content="保存" Margin="8,0,0,0" Click="Save_Click"/>
                     </StackPanel>
                 </Grid>

@@ -32,22 +32,40 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="bd" Background="{TemplateBinding Background}"
-                                CornerRadius="6" Padding="{TemplateBinding Padding}">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="{TemplateBinding Tag}" FontFamily="Segoe MDL2 Assets"
-                                           FontSize="14" VerticalAlignment="Center" Margin="0,0,6,0"
-                                           Foreground="{StaticResource TextSecondary}"/>
-                                <TextBlock Text="{TemplateBinding Content}" VerticalAlignment="Center"
-                                           Foreground="{TemplateBinding Foreground}"/>
-                            </StackPanel>
-                        </Border>
+                        <Grid>
+                            <!-- hover/press 背景铺满整个按钮（与拷贝/保存按钮高度一致，无内缩） -->
+                            <Border x:Name="bg" Background="Transparent" CornerRadius="6"/>
+                            <Border Padding="{TemplateBinding Padding}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{TemplateBinding Tag}" FontFamily="Segoe MDL2 Assets"
+                                               FontSize="14" VerticalAlignment="Center"
+                                               Foreground="{StaticResource TextSecondary}">
+                                        <!-- 图标间距只在确实有图标时才生效；无图标（纯文字按钮）不占位 -->
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Margin" Value="0,0,6,0"/>
+                                                <Style.Triggers>
+                                                    <Trigger Property="Text" Value="{x:Null}">
+                                                        <Setter Property="Margin" Value="0"/>
+                                                    </Trigger>
+                                                    <Trigger Property="Text" Value="">
+                                                        <Setter Property="Margin" Value="0"/>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                    <TextBlock Text="{TemplateBinding Content}" VerticalAlignment="Center"
+                                               Foreground="{TemplateBinding Foreground}"/>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bd" Property="Background" Value="#FF34343C"/>
+                                <Setter TargetName="bg" Property="Background" Value="#FF34343C"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="bd" Property="Background" Value="#FF3E3E46"/>
+                                <Setter TargetName="bg" Property="Background" Value="#FF3E3E46"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -111,8 +129,9 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="ToggleButton">
                         <Grid>
+                            <!-- bd：选中态蓝底（内缩圆角）；hoverOverlay：模仿设置按钮铺满整个区域 -->
                             <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="6" Margin="2"/>
-                            <Border x:Name="hoverOverlay" Background="#33FFFFFF" Opacity="0" CornerRadius="6" Margin="2"/>
+                            <Border x:Name="hoverOverlay" Background="#33FFFFFF" Opacity="0"/>
                             <TextBlock Text="拼" HorizontalAlignment="Center" VerticalAlignment="Center"
                                        Foreground="{TemplateBinding Foreground}" FontSize="12.5"/>
                         </Grid>
