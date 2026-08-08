@@ -65,6 +65,39 @@ public partial class SettingsWindow : Window
     private void OpenBoxFolder_Click(object sender, RoutedEventArgs e) =>
         OpenInExplorer(FolderService.BoxRoot);
 
+    /// <summary>清空 tempBox：删除其下所有临时副本文件与子目录（含确认）</summary>
+    private void ClearTempbox_Click(object sender, RoutedEventArgs e)
+    {
+        var dir = AppPaths.DefaultTempboxPath;
+        if (!Directory.Exists(dir))
+        {
+            MessageBox.Show(this, "tempBox 目录不存在，无需清理。", "voboX");
+            return;
+        }
+        var files = Directory.EnumerateFiles(dir, "*.*", SearchOption.AllDirectories).ToList();
+        if (files.Count == 0)
+        {
+            MessageBox.Show(this, "tempBox 已经是空的。", "voboX");
+            return;
+        }
+        if (MessageBox.Show(this,
+                $"确定清空 tempBox 吗？\n将删除 {files.Count} 个临时副本文件。\n\n外部软件中正在使用的副本可能失效。",
+                "voboX", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            return;
+        int deleted = 0;
+        foreach (var f in files)
+        {
+            try { File.Delete(f); deleted++; } catch { }
+        }
+        // 删除空子目录（从最深开始）
+        foreach (var d in Directory.EnumerateDirectories(dir, "*", SearchOption.AllDirectories)
+                     .OrderByDescending(x => x.Length))
+        {
+            try { Directory.Delete(d, recursive: false); } catch { }
+        }
+        MessageBox.Show(this, $"已清空 tempBox（删除 {deleted} 个文件）。", "voboX");
+    }
+
     // ================= 打开文件夹（在文件管理器中直接打开，目录不存在则先创建） =================
 
     private static void OpenInExplorer(string path)
