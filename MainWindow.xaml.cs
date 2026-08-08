@@ -204,14 +204,20 @@ public partial class MainWindow : Window
         }
         else
         {
-            // 有文字：按所选搜索范围收集（当前视图 / 全局 Box 排除 tempBox / voboX 索引目录树）
+            // 有文字：先轻量搜出命中的文件（不读时长），再只对命中项补读时长
             var pool = _searchScope switch
             {
-                SearchScope.Global => FolderService.GetTreeItems(FolderService.BoxRoot, "tempBox"),
-                SearchScope.Vobox => FolderService.GetTreeItems(FolderService.Root),
-                _ => FolderService.GetFolderItems(_currentFolder),
+                SearchScope.Global => FolderService.GetTreePaths(FolderService.BoxRoot, "tempBox"),
+                SearchScope.Vobox => FolderService.GetTreePaths(FolderService.Root),
+                _ => FolderService.GetFolderPaths(_currentFolder),
             };
-            _allItems.AddRange(pool.Where(a => a.FileName.Contains(keyword, StringComparison.OrdinalIgnoreCase)));
+            var matched = pool
+                .Where(a => a.FileName.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            // 只对命中的文件读时长（从 1000 次文件打开降到命中数）
+            foreach (var m in matched)
+                m.DurationMs = FolderService.GetDuration(m.FilePath);
+            _allItems.AddRange(matched);
         }
 
         // 按设置的排序规则排序（正反都有）：GetFolderItems 只保证物理+log 去重，顺序这里重排

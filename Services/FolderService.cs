@@ -144,34 +144,22 @@ public static class FolderService
         return null;
     }
 
-    // ================= 检索当前文件夹（打开即检索：搜到=有） =================
+    // ================= 检索（物理 wav + log 索引，源文件真实存在才显示） =================
 
     /// <summary>当前文件夹内容 = 物理音频文件 + log 索引（源文件真实存在才显示）</summary>
     public static List<AudioItem> GetFolderItems(string folderPath)
     {
-        var items = new List<AudioItem>();
-        if (!Directory.Exists(folderPath)) return items; // 目录不存在（如被删）则空
+        var paths = new List<string>();
+        if (Directory.Exists(folderPath)) CollectFolderPaths(folderPath, paths);
+        return Dedupe(paths).Select(BuildItem).ToList(); // 保持原始顺序，排序交给 MainWindow
+    }
 
-        // 物理音频
-        foreach (var f in Directory.EnumerateFiles(folderPath, "*.*"))
-            if (IsAudio(f)) items.Add(BuildItem(f));
-
-        // log 外部索引
-        var log = LogFile(folderPath);
-        if (File.Exists(log))
-        {
-            foreach (var line in File.ReadAllLines(log))
-            {
-                var src = line.Trim();
-                if (src.Length == 0) continue;
-                if (File.Exists(src)) items.Add(BuildItem(src));
-            }
-        }
-
-        return items
-            .GroupBy(a => a.FilePath, StringComparer.OrdinalIgnoreCase)
-            .Select(g => g.First())
-            .ToList(); // 保持原始顺序（物理文件在前、log 索引在后），排序交给 MainWindow 按规则处理
+    /// <summary>轻量收集当前文件夹（不读时长），供「先搜出文件、再加载时长」</summary>
+    public static List<AudioItem> GetFolderPaths(string folderPath)
+    {
+        var paths = new List<string>();
+        if (Directory.Exists(folderPath)) CollectFolderPaths(folderPath, paths);
+        return Dedupe(paths).Select(BuildSkeleton).ToList();
     }
 
     // ================= 树 / 全局搜索 =================
@@ -186,39 +174,45 @@ public static class FolderService
     /// </summary>
     public static List<AudioItem> GetTreeItems(string rootDir, params string[] skipSubDirNames)
     {
-        var items = new List<AudioItem>();
-        if (!Directory.Exists(rootDir)) return items; // 目录不存在则空
-        CollectTree(rootDir, items, skipSubDirNames);
-        return items
-            .GroupBy(a => a.FilePath, StringComparer.OrdinalIgnoreCase)
-            .Select(g => g.First())
-            .ToList();
+        var paths = new List<string>();
+        if (Directory.Exists(rootDir)) CollectTreePaths(rootDir, paths, skipSubDirNames);
+        return Dedupe(paths).Select(BuildItem).ToList();
     }
 
-    private static void CollectTree(string dir, List<AudioItem> items, string[] skipSubDirNames)
+    /// <summary>轻量收集目录树（不读时长），供「先搜出文件、再加载时长」</summary>
+    public static List<AudioItem> GetTreePaths(string rootDir, params string[] skipSubDirNames)
     {
-        // 物理音频（wav）
-        foreach (var f in Directory.EnumerateFiles(dir, "*.*"))
-            if (IsAudio(f)) items.Add(BuildItem(f));
+        var paths = new List<string>();
+        if (Directory.Exists(rootDir)) CollectTreePaths(rootDir, paths, skipSubDirNames);
+        return Dedupe(paths).Select(BuildSkeleton).ToList();
+    }
 
-        // log 外部索引（源文件存在才显示）
-        var log = LogFile(dir);
+    /// <summary>收集单文件夹的音频路径：物理 wav + log 索引（源文件仍存在）</summary>
+    private static void CollectFolderPaths(string folderPath, List<string> paths)
+    {
+        foreach (var f in Directory.EnumerateFiles(folderPath, "*.*"))
+            if (IsAudio(f)) paths.Add(f);
+        var log = LogFile(folderPath);
         if (File.Exists(log))
         {
             foreach (var line in File.ReadAllLines(log))
             {
                 var src = line.Trim();
                 if (src.Length == 0) continue;
-                if (File.Exists(src)) items.Add(BuildItem(src));
+                if (File.Exists(src)) paths.Add(src);
             }
         }
+    }
 
-        // 子文件夹递归（跳过指定目录，如 tempBox）
+    /// <summary>递归收集目录树路径（跳过指定子目录，如 tempBox）</summary>
+    private static void CollectTreePaths(string dir, List<string> paths, string[] skipSubDirNames)
+    {
+        CollectFolderPaths(dir, paths);
         foreach (var sub in Directory.GetDirectories(dir))
         {
             var name = Path.GetFileName(sub.TrimEnd(Path.DirectorySeparatorChar));
             if (skipSubDirNames.Any(s => s.Equals(name, StringComparison.OrdinalIgnoreCase))) continue;
-            CollectTree(sub, items, skipSubDirNames);
+            CollectTreePaths(sub, paths, skipSubDirNames);
         }
     }
 
@@ -260,21 +254,34 @@ public static class FolderService
 
     // ================= 工具 =================
 
-    private static AudioItem BuildItem(string filePath)
+    /// <summary>按路径去重（保留首次出现：物理在前、log 在后的原始顺序）</summary>
+    private static List<string> Dedupe(List<string> paths)
+        => paths.GroupBy(p => p, StringComparer.OrdinalIgnoreCase).Select(g => g.First()).ToList();
+
+    /// <summary>读取音频时长（毫秒）；失败返回 0</summary>
+    public static long GetDuration(string filePath)
     {
-        long ms = 0;
         try
         {
             using var r = new NAudio.Wave.AudioFileReader(filePath);
-            ms = (long)r.TotalTime.TotalMilliseconds;
+            return (long)r.TotalTime.TotalMilliseconds;
         }
-        catch
-        {
-            // 读取失败按 0 处理
-        }
+        catch { return 0; }
+    }
+
+    /// <summary>轻量条目：只带路径与加入时间（时长 0，搜索命中后再补读）</summary>
+    private static AudioItem BuildSkeleton(string filePath)
+    {
         DateTime added;
         try { added = File.GetCreationTime(filePath); } catch { added = DateTime.Now; }
-        return new AudioItem { FilePath = filePath, DurationMs = ms, AddedAt = added };
+        return new AudioItem { FilePath = filePath, DurationMs = 0, AddedAt = added };
+    }
+
+    private static AudioItem BuildItem(string filePath)
+    {
+        var item = BuildSkeleton(filePath);
+        item.DurationMs = GetDuration(filePath);
+        return item;
     }
 
     private static bool IsAudio(string path)
