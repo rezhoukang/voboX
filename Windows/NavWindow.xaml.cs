@@ -310,13 +310,19 @@ public partial class NavWindow : Window
 
     private void FolderTree_DragOver(object sender, DragEventArgs e)
     {
-        e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop)
-            ? DragDropEffects.Copy : DragDropEffects.None;
+        // 整窗级判断（最简方案）：命中内部拖出标记即整窗禁止，不逐文件/逐元素计算
+        e.Effects = e.Data.GetDataPresent(InternalDragFormat) ? DragDropEffects.None : DragDropEffects.Copy;
         e.Handled = true;
     }
 
     private void FolderTree_Drop(object sender, DragEventArgs e)
     {
+        // voboX 内部拖出的临时副本：窗口内禁止释放（DragOver 已禁止，这里兜底）
+        if (e.Data.GetDataPresent(InternalDragFormat))
+        {
+            e.Handled = true;
+            return;
+        }
         if (e.Data.GetData(DataFormats.FileDrop) is string[] files && files.Length > 0)
         {
             // 拖放目标是鼠标下的文件夹；空白处 = voboX 根
@@ -326,6 +332,9 @@ public partial class NavWindow : Window
         }
         e.Handled = true;
     }
+
+    /// <summary>voboX 内部拖出标记：窗口级禁止 tempBox 副本拖回应用</summary>
+    private const string InternalDragFormat = "voboX.InternalDrag";
 
     private void CreateFolderUnder(string parentDir)
     {

@@ -36,6 +36,12 @@ public partial class MainWindow : Window
     private bool _suppressDragClick;   // 右键菜单弹出后，忽略下一次左键拖拽（防误复制）
     private readonly ContextMenu _fileMenu = new(); // 复用同一菜单实例，避免右键菜单闪烁
 
+    // ===== 拖拽延迟复制状态：真正拖出窗口边界后才生成 tempBox 副本 =====
+    private List<string>? _dragSrcPaths;      // 本次拖拽的原始路径
+    private List<string>? _dragCreatedCopies; // 已生成的副本路径（供取消时回收）
+    private DataObject? _dragData;            // 拖拽数据（移出边界后替换为副本路径）
+    private bool _dragCopied;                 // 是否已生成副本
+
     // ===== 录制：最大时长限制（静态常量，不用魔法值）+ 实时计时 =====
     /// <summary>最大录制时长，超过后自动停止并保存（当前 999 秒）</summary>
     private static readonly TimeSpan MaxRecordDuration = TimeSpan.FromSeconds(999);
@@ -63,6 +69,8 @@ public partial class MainWindow : Window
         _recordTimer.Tick += RecordTimer_Tick;
 
         FileList.ContextMenu = _fileMenu; // 复用同一个菜单实例，避免右键菜单闪烁
+        // 拖拽循环中持续回调：用于“移出窗口边界才复制副本”的延迟复制逻辑
+        DragDrop.AddQueryContinueDragHandler(FileList, OnQueryContinueDrag);
         Topmost = _settings.Settings.AlwaysOnTop;
         UpdatePinVisual();
         ApplyAutoStart(_settings.Settings.AutoStart);
@@ -367,15 +375,28 @@ public partial class MainWindow : Window
 
     private bool SearchHasText => SearchBox.Text.Trim().Length > 0;
 
+    /// <summary>voboX 内部拖出标记：窗口级禁止 tempBox 副本拖回应用</summary>
+    private const string InternalDragFormat = "voboX.InternalDrag";
+
+    // ===== Win32：拖拽循环中获取鼠标屏幕坐标（Mouse.GetPosition 在 DoDragDrop 模态循环里不可靠） =====
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool GetCursorPos(out POINT lpPoint);
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    private struct POINT { public int X; public int Y; }
+
     private void Window_DragOver(object sender, DragEventArgs e)
     {
-        e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop)
-            ? DragDropEffects.Copy : DragDropEffects.None;
+        // 整窗级判断（最简方案）：命中内部拖出标记即整窗禁止，不逐文件/逐元素计算
+        e.Effects = e.Data.GetDataPresent(InternalDragFormat) ? DragDropEffects.None : DragDropEffects.Copy;
         e.Handled = true;
     }
 
     private void Window_Drop(object sender, DragEventArgs e)
     {
+        // voboX 内部拖出的临时副本：窗口内禁止释放（DragOver 已禁止，这里兜底）
+        if (e.Data.GetDataPresent(InternalDragFormat))
+            return;
         // 搜索状态下禁止拖入文件到展示区：提示并放弃导入
         if (SearchHasText)
         {
@@ -1053,19 +1074,78 @@ public partial class MainWindow : Window
             dragItems = FileList.SelectedItems.Cast<AudioItem>().ToList();
         else
             dragItems = new List<AudioItem> { (AudioItem)_dragItem.DataContext };
-
-        // 先复制到 tempBox，再以副本路径拖出，保证外部修改不影响源文件
-        var copyPaths = new List<string>();
-        foreach (var it in dragItems)
-        {
-            if (!File.Exists(it.FilePath)) continue;
-            try { copyPaths.Add(_tempbox.CreateCopy(it.FilePath)); } catch { }
-        }
         _dragItem = null;
-        if (copyPaths.Count == 0) return;
 
-        var data = new DataObject(DataFormats.FileDrop, copyPaths.ToArray());
+        // 先以原始路径建立拖拽（不复制）；真正拖出窗口边界后才生成 tempBox 副本，
+        // 避免“在窗口内随便一拖就复制”造成磁盘压力。
+        var srcPaths = dragItems.Where(i => File.Exists(i.FilePath)).Select(i => i.FilePath).ToList();
+        if (srcPaths.Count == 0) return;
+
+        var data = new DataObject(DataFormats.FileDrop, srcPaths.ToArray());
+        data.SetData(InternalDragFormat, true); // 标记内部拖出：拖回应用窗口时整窗禁止释放
+
+        // 记录拖拽状态，供 QueryContinueDrag 回调使用
+        _dragSrcPaths = srcPaths;
+        _dragCreatedCopies = null;
+        _dragData = data;
+        _dragCopied = false;
+
         DragDrop.DoDragDrop(FileList, data, DragDropEffects.Copy);
+        // DoDragDrop 返回后，QueryContinueDrag 最后一次回调已负责清理状态
+    }
+
+    /// <summary>拖拽循环中持续触发：鼠标移出窗口边界才生成副本；拖拽取消时回收已生成的副本</summary>
+    private void OnQueryContinueDrag(object sender, QueryContinueDragEventArgs e)
+    {
+        if (_dragSrcPaths is null) return;
+
+        if (!_dragCopied && IsOutsideAppWindows())
+        {
+            _dragCopied = true;
+            _dragCreatedCopies = _dragSrcPaths.Select(p =>
+            {
+                try { return _tempbox.CreateCopy(p); }
+                catch { return p; }
+            }).ToList();
+            _dragData?.SetData(DataFormats.FileDrop, _dragCreatedCopies.ToArray());
+        }
+        else if (e.Action == DragAction.Cancel && _dragCreatedCopies is not null)
+        {
+            // 拖拽被取消（ESC）：回收已生成的副本，避免 tempBox 堆积
+            foreach (var c in _dragCreatedCopies)
+            {
+                try { if (File.Exists(c)) File.Delete(c); } catch { }
+            }
+            _dragCreatedCopies = null;
+        }
+
+        // 拖拽结束（Drop / Cancel）：清理本次状态
+        if (e.Action != DragAction.Continue)
+        {
+            _dragSrcPaths = null;
+            _dragData = null;
+            _dragCopied = false;
+            _dragCreatedCopies = null;
+        }
+    }
+
+    /// <summary>鼠标是否已移出主窗口与左侧导航窗（展开时）的边界（用屏幕像素坐标对比窗口屏幕边界）</summary>
+    private bool IsOutsideAppWindows()
+    {
+        GetCursorPos(out var pt);
+        var p = new Point(pt.X, pt.Y); // 屏幕像素
+        var tl = PointToScreen(new Point(0, 0));
+        var br = PointToScreen(new Point(ActualWidth, ActualHeight));
+        if (p.X >= tl.X && p.X <= br.X && p.Y >= tl.Y && p.Y <= br.Y)
+            return false;
+        if (_navWindow is { IsVisible: true })
+        {
+            var ntl = _navWindow.PointToScreen(new Point(0, 0));
+            var nbr = _navWindow.PointToScreen(new Point(_navWindow.ActualWidth, _navWindow.ActualHeight));
+            if (p.X >= ntl.X && p.X <= nbr.X && p.Y >= ntl.Y && p.Y <= nbr.Y)
+                return false;
+        }
+        return true;
     }
 
     // ================= 设置 / 自启 / 清理 =================

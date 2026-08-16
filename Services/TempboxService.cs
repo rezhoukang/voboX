@@ -22,7 +22,8 @@ public class TempboxService
         var dir = _dirProvider();
         Directory.CreateDirectory(dir);
         var ext = Path.GetExtension(sourcePath).ToLowerInvariant();
-        var name = $"{Path.GetFileNameWithoutExtension(sourcePath)}_temp_{DateTime.Now:yyyyMMdd_HHmmss}{ext}";
+        // 时间戳含毫秒：避免同一秒内多次拖拽同一文件时文件名冲突（File.Copy overwrite:false 会静默失败）
+        var name = $"{Path.GetFileNameWithoutExtension(sourcePath)}_temp_{DateTime.Now:yyyyMMdd_HHmmssfff}{ext}";
         var dest = Path.Combine(dir, name);
         File.Copy(sourcePath, dest, overwrite: false);
         return dest;
