@@ -224,38 +224,51 @@
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
 
-                                        <!-- 容器1：选择复选框（独立固定宽度区域，避免误触右侧文件名） -->
-                                        <Border Grid.Column="0" Width="22" VerticalAlignment="Center">
-                                            <CheckBox Style="{StaticResource ListCheckBoxStyle}"
-                                                      IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                                                      Click="ItemCheckBox_Click" VerticalAlignment="Center"
-                                                      HorizontalAlignment="Center"/>
+                                        <!-- 选择框：独立放在卡片左侧（卡片外），避免误触文件名 -->
+                                        <CheckBox Grid.Column="0" Style="{StaticResource ListCheckBoxStyle}"
+                                                  IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                  Click="ItemCheckBox_Click" VerticalAlignment="Center"
+                                                  Margin="4,0,8,0"/>
+
+                                        <!-- 卡片：只包住文件名 + 时长，整体在复选框右侧；Tag 用于双击命中判定 -->
+                                        <Border Grid.Column="1" Tag="FileCard" CornerRadius="6" Padding="8,6">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Background" Value="Transparent"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                                            <Setter Property="Background" Value="{StaticResource CardHover}"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                                            <Setter Property="Background" Value="{StaticResource CardSelected}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+
+                                                <!-- 名称（向下微调 1px，与复选框光学校齐） -->
+                                                <TextBlock Grid.Column="0" FontSize="13"
+                                                           Foreground="{StaticResource TextPrimary}"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           VerticalAlignment="Center"
+                                                           RenderTransformOrigin="0.5,0.5">
+                                                    <TextBlock.RenderTransform>
+                                                        <TranslateTransform Y="1"/>
+                                                    </TextBlock.RenderTransform>
+                                                    <Run Text="{Binding FileName, Mode=OneWay}"/>
+                                                </TextBlock>
+
+                                                <!-- 时长 -->
+                                                <TextBlock Grid.Column="1" Text="{Binding DurationText}" FontSize="11"
+                                                           Foreground="{StaticResource TextMuted}" VerticalAlignment="Center"
+                                                           FontFamily="Consolas"/>
+                                            </Grid>
                                         </Border>
-
-                                        <!-- 容器2：文件信息（名称 + 时长） -->
-                                        <Grid Grid.Column="1" Margin="4,0,0,0">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-
-                                            <!-- 名称（向下微调 1px，与复选框光学校齐） -->
-                                            <TextBlock Grid.Column="0" FontSize="13"
-                                                       Foreground="{StaticResource TextPrimary}"
-                                                       TextTrimming="CharacterEllipsis"
-                                                       VerticalAlignment="Center"
-                                                       RenderTransformOrigin="0.5,0.5">
-                                                <TextBlock.RenderTransform>
-                                                    <TranslateTransform Y="1"/>
-                                                </TextBlock.RenderTransform>
-                                                <Run Text="{Binding FileName, Mode=OneWay}"/>
-                                            </TextBlock>
-
-                                            <!-- 时长 -->
-                                            <TextBlock Grid.Column="1" Text="{Binding DurationText}" FontSize="11"
-                                                       Foreground="{StaticResource TextMuted}" VerticalAlignment="Center"
-                                                       FontFamily="Consolas"/>
-                                        </Grid>
                                     </Grid>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>

@@ -222,6 +222,7 @@
         </Style>
 
         <!-- ================= 文件列表项 ================= -->
+        <!-- 圆角卡片（含 hover/选中底色）由 DataTemplate 负责，只包文件名+时长；选择框独立在卡片左侧 -->
         <Style x:Key="FileItemStyle" TargetType="ListBoxItem">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
@@ -230,18 +231,9 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
-                        <Border x:Name="bd" Background="{TemplateBinding Background}"
-                                CornerRadius="6" Margin="1,2" Padding="{TemplateBinding Padding}">
-                            <ContentPresenter/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bd" Property="Background" Value="{StaticResource CardHover}"/>
-                            </Trigger>
-                            <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="bd" Property="Background" Value="{StaticResource CardSelected}"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
+                        <ContentPresenter Margin="1,2"
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>

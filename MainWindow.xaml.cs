@@ -713,13 +713,29 @@ public partial class MainWindow : Window
 
     private void FileList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        // 双击落在选择框上：只切换选中，不触发播放（选择框已独立成容器，进一步防误触播放）
-        if (FindAncestor<CheckBox>(e.OriginalSource as DependencyObject) is not null)
+        // 双击只在「文件卡片」（文件名+时长，即 hover 生效的区域）内才触发播放：
+        // 卡片外的空白、选择框区域双击一律拦截，防止误触从头播放。
+        // 注意：文本节点 Run 不是 Visual，VisualTreeHelper.GetParent 会抛异常，
+        // 因此向上遍历失败时回退到逻辑树，避免双击文本导致闪退。
+        var node = e.OriginalSource as DependencyObject;
+        bool onCard = false;
+        while (node is not null)
         {
-            e.Handled = true;
-            return;
+            if (node is CheckBox) { e.Handled = true; return; }   // 选择框区域：不播放
+            if (node is Border b &&
+                string.Equals(b.Tag as string, "FileCard", StringComparison.Ordinal))
+            {
+                onCard = true; // 到达卡片：允许播放
+                break;
+            }
+            DependencyObject? parent;
+            try { parent = VisualTreeHelper.GetParent(node); }
+            catch { parent = null; } // 非 Visual（如 Run）→ 回退逻辑树
+            node = parent ?? LogicalTreeHelper.GetParent(node);
         }
-        // 双击：无论当前状态，都从头播放
+        if (!onCard) { e.Handled = true; return; } // 未命中卡片（空白区域）：不播放
+
+        // 双击卡片：无论当前状态，都从头播放
         if (FileList.SelectedItem is AudioItem item)
             PlayFromStart(item);
     }
