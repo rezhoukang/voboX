@@ -152,6 +152,13 @@ public partial class NavWindow : Window
             _currentPath = target;
     }
 
+    /// <summary>按完整路径选中节点（recordBox 等顶层独立节点需用完整路径；不触发 FolderSelected）</summary>
+    public void SelectFolderByFullPath(string fullPath)
+    {
+        if (TrySelectByPath(fullPath))
+            _currentPath = fullPath;
+    }
+
     /// <summary>按完整路径选中节点（程序化选中，不触发 FolderSelected 事件）；找到返回 true</summary>
     private bool TrySelectByPath(string target)
     {

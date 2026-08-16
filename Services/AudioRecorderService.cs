@@ -45,7 +45,12 @@ public class AudioRecorderService : IDisposable
 
     public void Stop()
     {
-        _waveIn?.StopRecording();
+        _waveIn?.StopRecording(); // 请求停止采集（异步触发 RecordingStopped）
+        // 同步关闭 writer、写全 WAV 头：不依赖异步 RecordingStopped 事件，
+        // 避免刚停止的录音被立即读取时长时读到 --:--（文件头尚未 finalize）。
+        // RecordingStopped 事件里也会 dispose，但此时 _writer 已为 null，?. 安全幂等。
+        _writer?.Dispose();
+        _writer = null;
         _waveIn?.Dispose();
         _waveIn = null;
         _recording = false;

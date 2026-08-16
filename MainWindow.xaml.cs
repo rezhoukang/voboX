@@ -554,9 +554,14 @@ public partial class MainWindow : Window
         RecordingTimeText.Visibility = Visibility.Collapsed;
         _recorder.Stop();
         ResetRecordButton();
-        // 录音只保存在录音目录（recordBox / 自定义），不再登记到当前文件夹的 log，
-        // 避免同一录音在“录音目录 + 当前文件夹”两处显示。
-        // 当前文件夹若就是录音目录，刷新后直接可见。
+        // 录音只保存在录音目录（recordBox），不登记到当前文件夹 log（避免同一录音两处显示）。
+        // 录制结束自动切到录音目录并刷新，让新录音立即可见，无需手动切换左侧目录。
+        var recDir = _settings.ResolveRecordboxDir();
+        if (!string.Equals(_currentFolder, recDir, StringComparison.OrdinalIgnoreCase))
+        {
+            _currentFolder = recDir;
+            _navWindow?.SelectFolderByFullPath(recDir); // 同步导航窗选中 recordBox
+        }
         ReloadSamples();
 
         if (auto)
