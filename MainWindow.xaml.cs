@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using voboX.Models;
 using voboX.Services;
 using voboX.Windows;
@@ -35,6 +36,12 @@ public partial class MainWindow : Window
     private bool _suppressDragClick;   // 右键菜单弹出后，忽略下一次左键拖拽（防误复制）
     private readonly ContextMenu _fileMenu = new(); // 复用同一菜单实例，避免右键菜单闪烁
 
+    // ===== 录制：最大时长限制（静态常量，不用魔法值）+ 实时计时 =====
+    /// <summary>最大录制时长，超过后自动停止并保存（当前 999 秒）</summary>
+    private static readonly TimeSpan MaxRecordDuration = TimeSpan.FromSeconds(999);
+    private readonly DispatcherTimer _recordTimer = new() { Interval = TimeSpan.FromSeconds(1) };
+    private TimeSpan _recordElapsed;
+
     // 搜索范围下拉：当前视图（默认）/ 全局搜索（整个 Box 排除 tempBox）/ voboX搜索 索引目录
     private enum SearchScope { CurrentView, Global, Vobox }
     private SearchScope _searchScope = SearchScope.CurrentView;
@@ -53,6 +60,7 @@ public partial class MainWindow : Window
         _player.PositionChanged += OnPositionChanged;
         _player.PlaybackFinished += OnPlaybackFinished;
         Waveform.SelectionChanged += OnSelectionChanged;
+        _recordTimer.Tick += RecordTimer_Tick;
 
         FileList.ContextMenu = _fileMenu; // 复用同一个菜单实例，避免右键菜单闪烁
         Topmost = _settings.Settings.AlwaysOnTop;
@@ -486,16 +494,7 @@ public partial class MainWindow : Window
     {
         if (_recorder.IsRecording)
         {
-            _recorder.Stop();
-            ResetRecordButton();
-            // 录音只保存在录音目录（recordBox / 自定义），不再登记到当前文件夹的 log，
-            // 避免同一录音在“录音目录 + 当前文件夹”两处显示。
-            // 当前文件夹若就是录音目录，刷新后直接可见。
-            ReloadSamples();
-            var saved = _recorder.OutputPath;
-            MessageBox.Show(this, File.Exists(saved)
-                ? $"录音已保存：\n{saved}\n\n可在左侧导航「recordBox」中查看。"
-                : "录音已停止（未保存到文件）。", "voboX");
+            StopRecording(notify: true);
             return;
         }
 
@@ -506,15 +505,57 @@ public partial class MainWindow : Window
             RecordButton.Content = "停止";
             RecordButton.Tag = "\uE71A";
             RecordButton.Foreground = (SolidColorBrush)FindResource("DangerBrush");
-            MessageBox.Show(this,
-                "开始录音… 再次点击「停止」保存。\n\n提示：录制“屏幕声音”请在「设置」中选择立体声混音设备。",
-                "voboX");
+            // 开始录制：不再弹窗，改为菜单栏右侧实时计时显示（达到最大时长自动停止）
+            _recordElapsed = TimeSpan.Zero;
+            RecordingTimeText.Text = FormatRecordTime(_recordElapsed);
+            RecordingTimeText.Visibility = Visibility.Visible;
+            _recordTimer.Start();
         }
         catch (Exception ex)
         {
             MessageBox.Show(this, "无法开始录音：\n" + ex.Message + "\n\n请到「设置」中检查录制设备。", "voboX");
         }
     }
+
+    /// <summary>录制计时：每秒刷新显示；达到最大时长自动停止并保存</summary>
+    private void RecordTimer_Tick(object? sender, EventArgs e)
+    {
+        _recordElapsed += TimeSpan.FromSeconds(1);
+        RecordingTimeText.Text = FormatRecordTime(_recordElapsed);
+        if (_recordElapsed >= MaxRecordDuration)
+            StopRecording(notify: true, auto: true);
+    }
+
+    /// <summary>停止录制并保存：复位按钮与计时显示；auto=true 表示达到最大时长自动触发</summary>
+    private void StopRecording(bool notify, bool auto = false)
+    {
+        _recordTimer.Stop();
+        RecordingTimeText.Visibility = Visibility.Collapsed;
+        _recorder.Stop();
+        ResetRecordButton();
+        // 录音只保存在录音目录（recordBox / 自定义），不再登记到当前文件夹的 log，
+        // 避免同一录音在“录音目录 + 当前文件夹”两处显示。
+        // 当前文件夹若就是录音目录，刷新后直接可见。
+        ReloadSamples();
+
+        if (auto)
+        {
+            MessageBox.Show(this,
+                $"已达到最大录制时长（{(int)MaxRecordDuration.TotalSeconds} 秒），录音已自动停止并保存。\n\n" +
+                $"文件位置：{_recorder.OutputPath}", "voboX");
+        }
+        else if (notify)
+        {
+            var saved = _recorder.OutputPath;
+            MessageBox.Show(this, File.Exists(saved)
+                ? $"录音已保存：\n{saved}\n\n可在左侧导航「recordBox」中查看。"
+                : "录音已停止（未保存到文件）。", "voboX");
+        }
+    }
+
+    /// <summary>录制时长显示：分:秒（上限 999 秒 = 16:39）</summary>
+    private static string FormatRecordTime(TimeSpan t)
+        => $"{(int)t.TotalMinutes:D2}:{t.Seconds:D2}";
 
     private void ResetRecordButton()
     {
@@ -672,6 +713,12 @@ public partial class MainWindow : Window
 
     private void FileList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
+        // 双击落在选择框上：只切换选中，不触发播放（选择框已独立成容器，进一步防误触播放）
+        if (FindAncestor<CheckBox>(e.OriginalSource as DependencyObject) is not null)
+        {
+            e.Handled = true;
+            return;
+        }
         // 双击：无论当前状态，都从头播放
         if (FileList.SelectedItem is AudioItem item)
             PlayFromStart(item);
@@ -1028,6 +1075,7 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        _recordTimer.Stop();
         _navWindow?.Close();
         _player.Dispose();
         _recorder.Dispose();

@@ -135,4 +135,18 @@ public partial class SettingsWindow : Window
         DialogResult = false;
         Close();
     }
+
+    /// <summary>点击 GitHub 图标：用默认浏览器打开仓库主页</summary>
+    private void GitHub_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(
+                new System.Diagnostics.ProcessStartInfo("https://github.com/rezhoukang/voboX") { UseShellExecute = true });
+        }
+        catch
+        {
+            // 打开失败忽略
+        }
+    }
 }

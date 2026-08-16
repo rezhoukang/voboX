@@ -32,6 +32,9 @@ VersionInfoVersion={#MyAppVersion}
 VersionInfoProductName={#MyAppName}
 UninstallDisplayIcon={app}\{#MyAppExeName}
 UninstallDisplayName={#MyAppName}
+; 更新安装：自动关闭正在运行的 voboX（否则 exe 被占用覆盖会失败），安装后不自动重启
+CloseApplications=yes
+RestartApplications=no
 
 [Languages]
 Name: "chinesesimplified"; MessagesFile: "ChineseSimplified.isl"
