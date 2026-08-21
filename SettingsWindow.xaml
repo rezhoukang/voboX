@@ -199,12 +199,35 @@
                             Padding="14,6" FontSize="12" Click="ClearTempbox_Click"/>
                 </Grid>
 
-                <TextBlock Text="拷贝真实文件到 voboX"
-                           FontSize="11" Foreground="{StaticResource SettingsLabelBrush}" Margin="0,16,0,0"/>
-                <TextBlock Text="把 log 索引的外部文件实际拷贝进 voboX 对应文件夹（拷入后 log 自动移除）"
-                           FontSize="11" Foreground="{StaticResource TextSecondary}" Margin="0,5,0,0" TextWrapping="Wrap"/>
-                <TextBlock x:Name="SaveBoxPathText" FontSize="11" Foreground="{StaticResource TextSecondary}"
-                           Margin="0,4,0,0" TextWrapping="Wrap"/>
+                <!-- 拷贝 log 索引到对应目录：标题 + 问号（悬停显示说明与 Box 路径） -->
+                <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                    <TextBlock Text="拷贝 log 索引到对应目录"
+                               FontSize="11" Foreground="{StaticResource SettingsLabelBrush}" VerticalAlignment="Center"/>
+                    <Border Width="16" Height="16" Margin="5,0,0,0" CornerRadius="8"
+                            Background="#33FFFFFF" VerticalAlignment="Center" Cursor="Help">
+                        <Border.ToolTip>
+                            <ToolTip>
+                                <StackPanel MaxWidth="280">
+                                    <TextBlock Text="勾选目录后，把其 log 索引的外部文件实际拷贝进该目录（拷入后 log 自动移除）。"
+                                               TextWrapping="Wrap"/>
+                                    <TextBlock x:Name="BoxPathTipText" TextWrapping="Wrap" Margin="0,6,0,0"
+                                               Foreground="{StaticResource TextSecondary}"/>
+                                </StackPanel>
+                            </ToolTip>
+                        </Border.ToolTip>
+                        <TextBlock Text="?" FontSize="10" Foreground="{StaticResource TextSecondary}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                </StackPanel>
+                <!-- 拷贝范围：三个目录勾选，默认全不勾选 -->
+                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                    <CheckBox x:Name="CopyRecordCheck" Content="recordBox"
+                              Foreground="{StaticResource TextPrimary}" Margin="0,0,14,0"/>
+                    <CheckBox x:Name="CopyCutCheck" Content="cutBox"
+                              Foreground="{StaticResource TextPrimary}" Margin="0,0,14,0"/>
+                    <CheckBox x:Name="CopyVoboxCheck" Content="voboX"
+                              Foreground="{StaticResource TextPrimary}"/>
+                </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                     <Button Style="{StaticResource SettingsSaveButtonStyle}" Content="拷贝" Click="CopyToVobox_Click"/>
                     <Button Style="{StaticResource ToolButtonStyle}" Content="打开文件夹" Padding="14,6" FontSize="12"

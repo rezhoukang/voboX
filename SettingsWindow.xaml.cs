@@ -44,22 +44,54 @@ public partial class SettingsWindow : Window
 
         // Box 下路径全部固定（voboX / recordBox / cutBox / tempBox 不可修改）
         AutoStartCheck.IsChecked = _settings.Settings.AutoStart;
-        SaveBoxPathText.Text = _settings.ResolveVoboxDir();
+        BoxPathTipText.Text = FolderService.BoxRoot;
     }
 
-    // ================= 拷贝真实文件到 voboX =================
+    // ================= 拷贝 log 索引到勾选目录 =================
 
     private void CopyToVobox_Click(object sender, RoutedEventArgs e)
     {
-        int n = FolderService.CopyIndexedToVobox();
+        // 收集勾选的目录；voboX 递归子文件夹，recordBox/cutBox 只处理自身
+        var targets = new List<(string Name, string Dir, bool Recursive)>();
+        if (CopyRecordCheck.IsChecked == true) targets.Add(("recordBox", AppPaths.RecordingsDir, false));
+        if (CopyCutCheck.IsChecked == true) targets.Add(("cutBox", AppPaths.DefaultCutboxPath, false));
+        if (CopyVoboxCheck.IsChecked == true) targets.Add(("voboX", FolderService.Root, true));
+
+        if (targets.Count == 0)
+        {
+            MessageBox.Show(this, "请先勾选要拷贝的目录（recordBox / cutBox / voboX）。", "voboX");
+            return;
+        }
+
+        // 第一次确认：提示将处理哪些目录、共几条 log 索引
+        var detail = string.Join("\n", targets.Select(t =>
+            $"{t.Name}（{FolderService.CountLogEntries(t.Dir, t.Recursive)} 条）"));
+        if (MessageBox.Show(this,
+                $"将拷贝以下目录的 log 索引：\n{detail}\n\n继续？",
+                "voboX", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
+
+        // 第二次确认：最终确认执行
+        if (MessageBox.Show(this,
+                "确认执行拷贝吗？\n\n把 log 索引的外部文件真实拷贝进对应目录，并从 log 移除已拷贝条目。",
+                "voboX", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            return;
+
+        // 执行拷贝（逐目录累计）
+        int copied = 0, dirs = 0;
+        foreach (var t in targets)
+        {
+            var (d, c) = FolderService.CopyIndexedLogs(t.Dir, t.Recursive);
+            dirs += d; copied += c;
+        }
         MessageBox.Show(this,
-            $"已拷贝 {n} 个文件到：\n{AppPaths.DefaultSaveBoxPath}\n\n" +
-            $"（原 log 索引已移除，文件已真实拷入）",
+            $"已拷贝 {copied} 个文件到对应目录（共处理 {dirs} 个文件夹）。\n\n原 log 索引已移除，文件已真实拷入。",
             "voboX");
     }
 
+    /// <summary>打开 Box 根目录（voboX / recordBox / cutBox / tempBox 都在里面）</summary>
     private void SaveBoxOpen_Click(object sender, RoutedEventArgs e) =>
-        OpenInExplorer(AppPaths.DefaultSaveBoxPath);
+        OpenInExplorer(FolderService.BoxRoot);
 
     /// <summary>打开 Box 根目录（voboX / recordBox / cutBox / tempBox 都在里面）</summary>
     private void OpenBoxFolder_Click(object sender, RoutedEventArgs e) =>

@@ -999,9 +999,36 @@ public partial class MainWindow : Window
                     $"确定移除 {sel.Count} 个条目吗？\n（voboX 内文件会被删除；外部索引只删 log，源文件保留）",
                     "voboX", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
                 return;
+
+            // 若正在播放的文件在被移除列表中：先停止播放、释放文件句柄，
+            // 否则删除会因文件被占用抛 IOException 导致闪退（曾出现在 recordBox 录音上）。
+            if (_player.CurrentPath is string curPath &&
+                sel.Any(i => i.FilePath.Equals(curPath, StringComparison.OrdinalIgnoreCase)))
+            {
+                _player.Stop();
+                StopPlayingFlag();
+                UpdatePlayIcon();
+                Waveform.Playhead = 0;
+            }
+
+            // 逐个移除；文件仍被其他程序占用时只提示，不崩溃
+            var failed = new List<string>();
             foreach (var item in sel)
-                FolderService.RemoveEntry(_currentFolder, item);
+            {
+                try
+                {
+                    FolderService.RemoveEntry(_currentFolder, item);
+                }
+                catch (IOException)
+                {
+                    failed.Add(item.FileName);
+                }
+            }
             ReloadSamples();
+            if (failed.Count > 0)
+                MessageBox.Show(this,
+                    $"以下文件无法删除（可能正被其他程序使用）：\n" + string.Join("\n", failed),
+                    "voboX", MessageBoxButton.OK, MessageBoxImage.Warning);
         };
         _fileMenu.Items.Add(remove);
     }

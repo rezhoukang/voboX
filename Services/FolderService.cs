@@ -216,16 +216,22 @@ public static class FolderService
         }
     }
 
-    // ================= 拷贝真实文件到 voboX =================
+    // ================= 拷贝 log 索引的外部文件到对应目录 =================
 
     /// <summary>
-    /// 遍历每个文件夹的 log 文件，把外部文件真实拷贝进该文件夹，
-    /// 并从 log 移除该行。返回拷贝数量。
+    /// 把指定根目录下各文件夹 log 文件索引的外部文件真实拷贝进该文件夹，
+    /// 并从 log 移除已拷贝的行。
+    /// recursive=true（voboX）时递归其下所有子文件夹；false（recordBox/cutBox）只处理根目录自身。
+    /// 返回 (处理的目录数, 拷贝文件数)。
     /// </summary>
-    public static int CopyIndexedToVobox()
+    public static (int dirs, int copied) CopyIndexedLogs(string rootDir, bool recursive)
     {
-        int copied = 0;
-        foreach (var dir in Directory.GetDirectories(Root, "*", SearchOption.AllDirectories))
+        int copied = 0, dirs = 0;
+        var dirsToProcess = recursive
+            ? Directory.GetDirectories(rootDir, "*", SearchOption.AllDirectories).ToList()
+            : new List<string> { rootDir };
+
+        foreach (var dir in dirsToProcess)
         {
             var log = LogFile(dir);
             if (!File.Exists(log)) continue;
@@ -248,8 +254,25 @@ public static class FolderService
                 remain.Add(src);
             }
             File.WriteAllLines(log, remain, new System.Text.UTF8Encoding(false));
+            dirs++;
         }
-        return copied;
+        return (dirs, copied);
+    }
+
+    /// <summary>统计根目录下各文件夹 log 索引的有效条目数（供拷贝前的确认提示）</summary>
+    public static int CountLogEntries(string rootDir, bool recursive)
+    {
+        int count = 0;
+        var dirs = recursive
+            ? Directory.GetDirectories(rootDir, "*", SearchOption.AllDirectories).ToList()
+            : new List<string> { rootDir };
+        foreach (var dir in dirs)
+        {
+            var log = LogFile(dir);
+            if (!File.Exists(log)) continue;
+            count += File.ReadAllLines(log).Count(l => !string.IsNullOrWhiteSpace(l));
+        }
+        return count;
     }
 
     // ================= 工具 =================
