@@ -260,7 +260,7 @@
                                                     <TextBlock.RenderTransform>
                                                         <TranslateTransform Y="1"/>
                                                     </TextBlock.RenderTransform>
-                                                    <Run Text="{Binding FileName, Mode=OneWay}"/>
+                                                    <Run Text="{Binding DisplayName, Mode=OneWay}"/>
                                                 </TextBlock>
 
                                                 <!-- 时长 -->

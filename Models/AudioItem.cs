@@ -32,6 +32,12 @@ public class AudioItem : INotifyPropertyChanged
     /// <summary>文件名（含扩展名）</summary>
     public string FileName => System.IO.Path.GetFileName(FilePath);
 
+    /// <summary>显示别名（重命名用，存于所在文件夹 log.txt；空 = 显示物理文件名）</summary>
+    public string Alias { get; set; } = "";
+
+    /// <summary>显示名：别名优先，否则物理文件名（始终带扩展名，供列表/播放栏/搜索/排序/拷贝使用）</summary>
+    public string DisplayName => !string.IsNullOrWhiteSpace(Alias) ? Alias : FileName;
+
     /// <summary>时长文本：小于 1s 用毫秒（如 850ms），大于等于 1s 用秒（如 23s）</summary>
     public string DurationText => DurationMs switch
     {

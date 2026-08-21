@@ -231,8 +231,8 @@ public partial class MainWindow : Window
             };
             var matched = pool
                 .Where(a => _pinyinEnabled
-                    ? PinyinService.Matches(a.FileName, keyword)
-                    : Path.GetFileNameWithoutExtension(a.FileName).Contains(keyword, StringComparison.OrdinalIgnoreCase))
+                    ? PinyinService.Matches(a.DisplayName, keyword)
+                    : Path.GetFileNameWithoutExtension(a.DisplayName).Contains(keyword, StringComparison.OrdinalIgnoreCase))
                 .ToList();
             // 只对命中的文件读时长（从 1000 次文件打开降到命中数）
             foreach (var m in matched)
@@ -245,8 +245,8 @@ public partial class MainWindow : Window
         {
             "none" => _allItems, // 无排序：保持文件夹原始顺序
             "timeAsc" => _allItems.OrderBy(a => a.AddedAt),
-            "name" => _allItems.OrderBy(a => a.FileName, StringComparer.OrdinalIgnoreCase),
-            "nameDesc" => _allItems.OrderByDescending(a => a.FileName, StringComparer.OrdinalIgnoreCase),
+            "name" => _allItems.OrderBy(a => a.DisplayName, StringComparer.OrdinalIgnoreCase),
+            "nameDesc" => _allItems.OrderByDescending(a => a.DisplayName, StringComparer.OrdinalIgnoreCase),
             "duration" => _allItems.OrderByDescending(a => a.DurationMs),
             "durationAsc" => _allItems.OrderBy(a => a.DurationMs),
             _ => _allItems.OrderByDescending(a => a.AddedAt), // time：新→旧
@@ -255,8 +255,8 @@ public partial class MainWindow : Window
         var visible = string.IsNullOrEmpty(keyword)
             ? sorted
             : sorted.Where(a => _pinyinEnabled
-                ? PinyinService.Matches(a.FileName, keyword)
-                : Path.GetFileNameWithoutExtension(a.FileName).Contains(keyword, StringComparison.OrdinalIgnoreCase));
+                ? PinyinService.Matches(a.DisplayName, keyword)
+                : Path.GetFileNameWithoutExtension(a.DisplayName).Contains(keyword, StringComparison.OrdinalIgnoreCase));
 
         // 必须赋新实例：ItemsSource 引用相同会被 WPF 视为无变化，列表不会刷新
         FileList.ItemsSource = visible.ToList();
@@ -700,7 +700,7 @@ public partial class MainWindow : Window
         }
 
         BottomPlayer.Visibility = Visibility.Visible;
-        CurrentFileName.Text = _current.FileName;
+        CurrentFileName.Text = _current.DisplayName;
         UpdateTimeText(0, _current.DurationMs / 1000.0);
         UpdatePlayIcon();
         LoadWaveform(_current);
@@ -990,6 +990,65 @@ public partial class MainWindow : Window
         // 复用同一个 ContextMenu 实例重建菜单项（避免每次新建导致闪烁）
         _fileMenu.Items.Clear();
 
+        // 重命名：仅单文件可用；改的是显示别名，物理文件不动，外部索引也能改
+        var rename = new MenuItem { Header = "重命名" };
+        if (FileList.SelectedItems.Count != 1)
+            rename.IsEnabled = false;
+        rename.Click += (s, _) =>
+        {
+            var item = FileList.SelectedItem as AudioItem;
+            if (item is null) return;
+            var curName = Path.GetFileNameWithoutExtension(item.DisplayName);
+            var dlg = new InputDialog("重命名", $"当前名称：{item.DisplayName}\n输入新名称（自动补 .wav）：", curName)
+            { Owner = this };
+            if (dlg.ShowDialog() != true) return;
+            var newName = dlg.Value.Trim();
+            if (newName.Length == 0) { MessageBox.Show(this, "名称不能为空。", "voboX"); return; }
+            if (newName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+            { MessageBox.Show(this, "名称包含非法字符。", "voboX"); return; }
+            var newDisplay = Path.GetExtension(newName).Equals(".wav", StringComparison.OrdinalIgnoreCase)
+                ? newName
+                : newName + ".wav";
+            // 与当前列表其他条目显示名冲突检查
+            var conflict = FileList.Items.Cast<AudioItem>()
+                .Any(o => !ReferenceEquals(o, item) &&
+                          o.DisplayName.Equals(newDisplay, StringComparison.OrdinalIgnoreCase));
+            if (conflict) { MessageBox.Show(this, $"已存在同名条目：{newDisplay}", "voboX"); return; }
+            // 物理文件（在本文件夹内）：直接改物理文件名；外部索引文件：写显示别名
+            if (FolderService.IsInside(item.FilePath, _currentFolder))
+            {
+                // 若正在播放该文件，先停止释放句柄，避免移动失败
+                if (_player.CurrentPath is string cur &&
+                    cur.Equals(item.FilePath, StringComparison.OrdinalIgnoreCase))
+                {
+                    _player.Stop();
+                    StopPlayingFlag();
+                    UpdatePlayIcon();
+                    Waveform.Playhead = 0;
+                }
+                var newPath = Path.Combine(Path.GetDirectoryName(item.FilePath)!, newDisplay);
+                try
+                {
+                    File.Move(item.FilePath, newPath);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(this, "重命名失败：\n" + ex.Message, "voboX");
+                    return;
+                }
+                // 该物理文件若曾登记过别名，改名后清理旧路径的登记行
+                FolderService.SetAlias(_currentFolder, item.FilePath, "");
+            }
+            else
+            {
+                var physical = Path.GetFileName(item.FilePath);
+                FolderService.SetAlias(_currentFolder, item.FilePath,
+                    physical.Equals(newDisplay, StringComparison.OrdinalIgnoreCase) ? "" : newDisplay);
+            }
+            ReloadSamples();
+        };
+        _fileMenu.Items.Add(rename);
+
         var remove = new MenuItem { Header = "移除" };
         remove.Click += (s, _) =>
         {
@@ -1021,7 +1080,7 @@ public partial class MainWindow : Window
                 }
                 catch (IOException)
                 {
-                    failed.Add(item.FileName);
+                    failed.Add(item.DisplayName);
                 }
             }
             ReloadSamples();

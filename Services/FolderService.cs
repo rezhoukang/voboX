@@ -84,16 +84,60 @@ public static class FolderService
     }
 
     // ================= log 索引（每个文件夹一个 log 文件） =================
+    // 行格式：`路径`（纯索引）或 `路径|别名`（登记显示别名）。别名空 = 显示物理文件名。
 
-    /// <summary>把外部文件登记到指定文件夹的 log 文件（每行一个路径）</summary>
+    /// <summary>解析 log 行 → (路径, 别名)</summary>
+    public static (string Path, string Alias) ParseLogLine(string line)
+    {
+        var i = line.IndexOf('|');
+        if (i < 0) return (line.Trim(), "");
+        return (line[..i].Trim(), line[(i + 1)..].Trim());
+    }
+
+    /// <summary>把外部文件登记到指定文件夹的 log 文件（每行一个路径，按解析后的路径去重）</summary>
     public static void AddIndexLog(string folderDir, string sourcePath)
     {
         Directory.CreateDirectory(folderDir);
         var log = LogFile(folderDir);
         var lines = File.Exists(log) ? File.ReadAllLines(log).ToList() : new List<string>();
-        if (!lines.Contains(sourcePath, StringComparer.OrdinalIgnoreCase))
+        if (!lines.Any(l => ParseLogLine(l).Path.Equals(sourcePath, StringComparison.OrdinalIgnoreCase)))
             lines.Add(sourcePath);
         File.WriteAllLines(log, lines, new System.Text.UTF8Encoding(false));
+    }
+
+    /// <summary>
+    /// 设置某条目的显示别名（写入文件夹 log.txt）。
+    /// alias 为空 = 清除别名：物理文件直接移除登记行；外部索引保留纯路径行（索引不丢）。
+    /// </summary>
+    public static void SetAlias(string folderDir, string filePath, string alias)
+    {
+        Directory.CreateDirectory(folderDir);
+        var log = LogFile(folderDir);
+        var lines = File.Exists(log) ? File.ReadAllLines(log).ToList() : new List<string>();
+        var remain = new List<string>();
+        bool found = false;
+        foreach (var line in lines)
+        {
+            var (p, _) = ParseLogLine(line);
+            if (!p.Equals(filePath, StringComparison.OrdinalIgnoreCase))
+            {
+                remain.Add(line);
+                continue;
+            }
+            found = true;
+            if (string.IsNullOrEmpty(alias))
+            {
+                // 清别名：物理文件移除登记行；外部索引保留纯路径行
+                if (!IsInside(filePath, folderDir)) remain.Add(filePath);
+            }
+            else
+            {
+                remain.Add($"{filePath}|{alias}");
+            }
+        }
+        if (!found && !string.IsNullOrEmpty(alias))
+            remain.Add($"{filePath}|{alias}");
+        File.WriteAllLines(log, remain, new System.Text.UTF8Encoding(false));
     }
 
     /// <summary>移除条目：目录内物理文件直接删文件；外部索引从 log 文件移除该行</summary>
@@ -107,7 +151,7 @@ public static class FolderService
         var log = LogFile(folderDir);
         if (!File.Exists(log)) return;
         var lines = File.ReadAllLines(log)
-            .Where(l => !l.Equals(item.FilePath, StringComparison.OrdinalIgnoreCase))
+            .Where(l => !ParseLogLine(l).Path.Equals(item.FilePath, StringComparison.OrdinalIgnoreCase))
             .ToList();
         File.WriteAllLines(log, lines, new System.Text.UTF8Encoding(false));
     }
@@ -135,7 +179,7 @@ public static class FolderService
         {
             foreach (var line in File.ReadAllLines(log))
             {
-                var src = line.Trim();
+                var (src, _) = ParseLogLine(line);
                 if (src.Length == 0) continue;
                 if (File.Exists(src) && Path.GetFileName(src).Equals(name, StringComparison.OrdinalIgnoreCase))
                     return src;
@@ -149,17 +193,17 @@ public static class FolderService
     /// <summary>当前文件夹内容 = 物理音频文件 + log 索引（源文件真实存在才显示）</summary>
     public static List<AudioItem> GetFolderItems(string folderPath)
     {
-        var paths = new List<string>();
+        var paths = new List<(string Path, string Alias)>();
         if (Directory.Exists(folderPath)) CollectFolderPaths(folderPath, paths);
-        return Dedupe(paths).Select(BuildItem).ToList(); // 保持原始顺序，排序交给 MainWindow
+        return paths.Select(BuildItem).ToList(); // 保持原始顺序，排序交给 MainWindow
     }
 
     /// <summary>轻量收集当前文件夹（不读时长），供「先搜出文件、再加载时长」</summary>
     public static List<AudioItem> GetFolderPaths(string folderPath)
     {
-        var paths = new List<string>();
+        var paths = new List<(string Path, string Alias)>();
         if (Directory.Exists(folderPath)) CollectFolderPaths(folderPath, paths);
-        return Dedupe(paths).Select(BuildSkeleton).ToList();
+        return paths.Select(BuildSkeleton).ToList();
     }
 
     // ================= 树 / 全局搜索 =================
@@ -174,38 +218,50 @@ public static class FolderService
     /// </summary>
     public static List<AudioItem> GetTreeItems(string rootDir, params string[] skipSubDirNames)
     {
-        var paths = new List<string>();
+        var paths = new List<(string Path, string Alias)>();
         if (Directory.Exists(rootDir)) CollectTreePaths(rootDir, paths, skipSubDirNames);
-        return Dedupe(paths).Select(BuildItem).ToList();
+        return paths.Select(BuildItem).ToList();
     }
 
     /// <summary>轻量收集目录树（不读时长），供「先搜出文件、再加载时长」</summary>
     public static List<AudioItem> GetTreePaths(string rootDir, params string[] skipSubDirNames)
     {
-        var paths = new List<string>();
+        var paths = new List<(string Path, string Alias)>();
         if (Directory.Exists(rootDir)) CollectTreePaths(rootDir, paths, skipSubDirNames);
-        return Dedupe(paths).Select(BuildSkeleton).ToList();
+        return paths.Select(BuildSkeleton).ToList();
     }
 
     /// <summary>收集单文件夹的音频路径：物理 wav + log 索引（源文件仍存在）</summary>
-    private static void CollectFolderPaths(string folderPath, List<string> paths)
+    /// <summary>
+    /// 收集单文件夹的音频：物理 wav + log 登记的路径（物理与外部都带可选别名）。
+    /// log 里登记的物理文件只用于补别名（不重复加入）；外部文件作为索引加入。
+    /// </summary>
+    private static void CollectFolderPaths(string folderPath, List<(string Path, string Alias)> paths)
     {
-        foreach (var f in Directory.EnumerateFiles(folderPath, "*.*"))
-            if (IsAudio(f)) paths.Add(f);
+        // 先读 log 建立 路径→别名 映射（物理文件别名与外部索引都在这里）
         var log = LogFile(folderPath);
+        var aliasByPath = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         if (File.Exists(log))
         {
             foreach (var line in File.ReadAllLines(log))
             {
-                var src = line.Trim();
-                if (src.Length == 0) continue;
-                if (File.Exists(src)) paths.Add(src);
+                var (p, a) = ParseLogLine(line);
+                if (p.Length == 0 || !File.Exists(p)) continue;
+                aliasByPath[p] = a;
             }
         }
+        // 物理文件：直接枚举，查别名
+        foreach (var f in Directory.EnumerateFiles(folderPath, "*.*"))
+            if (IsAudio(f))
+                paths.Add((f, aliasByPath.TryGetValue(f, out var a) ? a : ""));
+        // log 登记的外部文件（不在本目录内）
+        foreach (var kv in aliasByPath)
+            if (!IsInside(kv.Key, folderPath))
+                paths.Add((kv.Key, kv.Value));
     }
 
-    /// <summary>递归收集目录树路径（跳过指定子目录，如 tempBox）</summary>
-    private static void CollectTreePaths(string dir, List<string> paths, string[] skipSubDirNames)
+    /// <summary>递归收集目录树（跳过指定子目录，如 tempBox）</summary>
+    private static void CollectTreePaths(string dir, List<(string Path, string Alias)> paths, string[] skipSubDirNames)
     {
         CollectFolderPaths(dir, paths);
         foreach (var sub in Directory.GetDirectories(dir))
@@ -239,11 +295,14 @@ public static class FolderService
             var remain = new List<string>();
             foreach (var line in File.ReadAllLines(log))
             {
-                var src = line.Trim();
+                var (src, alias) = ParseLogLine(line);
                 if (src.Length == 0) continue;
-                if (!File.Exists(src)) { remain.Add(src); continue; }
+                if (!File.Exists(src)) { remain.Add(line); continue; }
+                // 物理文件（本目录内）的别名登记行：不拷，保留
+                if (IsInside(src, dir)) { remain.Add(line); continue; }
 
-                var dest = UniquePath(dir, Path.GetFileName(src));
+                // 目标文件名：有别名用别名，否则用原文件名
+                var dest = UniquePath(dir, !string.IsNullOrEmpty(alias) ? alias : Path.GetFileName(src));
                 try
                 {
                     File.Copy(src, dest, overwrite: false);
@@ -251,7 +310,7 @@ public static class FolderService
                     continue; // 已拷贝，从 log 移除
                 }
                 catch { }
-                remain.Add(src);
+                remain.Add(line);
             }
             File.WriteAllLines(log, remain, new System.Text.UTF8Encoding(false));
             dirs++;
@@ -270,16 +329,12 @@ public static class FolderService
         {
             var log = LogFile(dir);
             if (!File.Exists(log)) continue;
-            count += File.ReadAllLines(log).Count(l => !string.IsNullOrWhiteSpace(l));
+            count += File.ReadAllLines(log).Count(l => !string.IsNullOrWhiteSpace(ParseLogLine(l).Path));
         }
         return count;
     }
 
     // ================= 工具 =================
-
-    /// <summary>按路径去重（保留首次出现：物理在前、log 在后的原始顺序）</summary>
-    private static List<string> Dedupe(List<string> paths)
-        => paths.GroupBy(p => p, StringComparer.OrdinalIgnoreCase).Select(g => g.First()).ToList();
 
     /// <summary>读取音频时长（毫秒）；失败返回 0</summary>
     public static long GetDuration(string filePath)
@@ -293,17 +348,17 @@ public static class FolderService
     }
 
     /// <summary>轻量条目：只带路径与加入时间（时长 0，搜索命中后再补读）</summary>
-    private static AudioItem BuildSkeleton(string filePath)
+    private static AudioItem BuildSkeleton((string Path, string Alias) p)
     {
         DateTime added;
-        try { added = File.GetCreationTime(filePath); } catch { added = DateTime.Now; }
-        return new AudioItem { FilePath = filePath, DurationMs = 0, AddedAt = added };
+        try { added = File.GetCreationTime(p.Path); } catch { added = DateTime.Now; }
+        return new AudioItem { FilePath = p.Path, Alias = p.Alias, DurationMs = 0, AddedAt = added };
     }
 
-    private static AudioItem BuildItem(string filePath)
+    private static AudioItem BuildItem((string Path, string Alias) p)
     {
-        var item = BuildSkeleton(filePath);
-        item.DurationMs = GetDuration(filePath);
+        var item = BuildSkeleton(p);
+        item.DurationMs = GetDuration(p.Path);
         return item;
     }
 
