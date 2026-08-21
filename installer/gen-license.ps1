@@ -5,7 +5,7 @@
 
 $ErrorActionPreference = 'Stop'
 
-function Esc-Rtf($s) {
+function ConvertTo-RtfEscaped($s) {
     $o = New-Object System.Text.StringBuilder
     foreach ($ch in $s.ToCharArray()) {
         $c = [int]$ch
@@ -37,22 +37,22 @@ for ($i = 0; $i -lt $lines.Count; $i++) {
     $t = $lines[$i].Trim()
     if ($i -eq 0) {
         # Title: no indent, 15pt bold black, bottom rule
-        [void]$sb.Append('\pard\sl240\slmult1\fs30\b\cf1 ' + (Esc-Rtf $t) + '\b0\cf0\sa120\brdrb\brdrs\brdrw10\brsp40\par ')
+        [void]$sb.Append('\pard\sl240\slmult1\fs30\b\cf1 ' + (ConvertTo-RtfEscaped $t) + '\b0\cf0\sa120\brdrb\brdrs\brdrw10\brsp40\par ')
     } elseif ($i -eq 1) {
         # Version: no indent, 9pt gray
-        [void]$sb.Append('\pard\sl240\slmult1\fs18\cf2 ' + (Esc-Rtf $t) + '\cf0\sa80\par ')
+        [void]$sb.Append('\pard\sl240\slmult1\fs18\cf2 ' + (ConvertTo-RtfEscaped $t) + '\cf0\sa80\par ')
     } elseif ($t.Length -le 6) {
         # Heading: 1-char indent, 11pt bold black, space before for grouping
-        [void]$sb.Append('\pard\sl240\slmult1\fs22\b\cf1\fi220 ' + (Esc-Rtf $t) + '\b0\cf0\sb100\sa80\par ')
+        [void]$sb.Append('\pard\sl240\slmult1\fs22\b\cf1\fi220 ' + (ConvertTo-RtfEscaped $t) + '\b0\cf0\sb100\sa80\par ')
     } elseif ($i -eq $lines.Count - 1) {
         # Closing line: standalone, 1-char indent, 12pt bold black, extra space above
-        [void]$sb.Append('\pard\sl240\slmult1\fs24\b\cf1\fi220\sb160 ' + (Esc-Rtf $t) + '\b0\cf0\sa60\par ')
+        [void]$sb.Append('\pard\sl240\slmult1\fs24\b\cf1\fi220\sb160 ' + (ConvertTo-RtfEscaped $t) + '\b0\cf0\sa60\par ')
     } elseif ($t -match '^[0-9]\.') {
         # Numbered item: 1-char indent, 10pt black
-        [void]$sb.Append('\pard\sl240\slmult1\fs20\cf1\fi220 ' + (Esc-Rtf $t) + '\cf0\sa60\par ')
+        [void]$sb.Append('\pard\sl240\slmult1\fs20\cf1\fi220 ' + (ConvertTo-RtfEscaped $t) + '\cf0\sa60\par ')
     } else {
         # Body: 2-char first-line indent, 10pt black
-        [void]$sb.Append('\pard\sl240\slmult1\fs20\cf1\fi400 ' + (Esc-Rtf $t) + '\cf0\sa60\par ')
+        [void]$sb.Append('\pard\sl240\slmult1\fs20\cf1\fi400 ' + (ConvertTo-RtfEscaped $t) + '\cf0\sa60\par ')
     }
 }
 [void]$sb.Append("`n}")
