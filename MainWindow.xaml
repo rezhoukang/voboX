@@ -314,6 +314,7 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
                     <Button x:Name="PlayButton" Grid.Column="0" Style="{StaticResource RoundIconButtonStyle}"
@@ -325,6 +326,9 @@
                                Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"/>
                     <Button x:Name="CropButton" Grid.Column="3" Style="{StaticResource AccentButtonStyle}"
                             Content="裁剪保存" Margin="8,0,0,0" Click="CropButton_Click"/>
+                    <Button x:Name="DirectCropButton" Grid.Column="4" Style="{StaticResource DangerAccentButtonStyle}"
+                            Content="直接裁剪" Margin="8,0,0,0" Click="DirectCropButton_Click"
+                            ToolTip="裁剪后直接保存到当前文件夹，删除原文件（外部索引则移除索引），并弹出重命名"/>
                 </Grid>
 
                 <!-- 波形（含裁剪选区交互） -->

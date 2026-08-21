@@ -20,6 +20,7 @@
         <SolidColorBrush x:Key="AccentLight" Color="#FF60A5FA"/>
         <SolidColorBrush x:Key="AccentSoft" Color="#1F2563EB"/>
         <SolidColorBrush x:Key="DangerBrush" Color="#FFEF4444"/>
+        <SolidColorBrush x:Key="DangerLight" Color="#FFF87171"/>
 
         <!-- ================= 顶部工具按钮（录制/导入） ================= -->
         <Style x:Key="ToolButtonStyle" TargetType="Button">
@@ -357,6 +358,29 @@
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
                                 <Setter TargetName="bd" Property="Background" Value="{StaticResource AccentBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ================= 危险强调按钮（直接裁剪：会删除原文件/移除索引） ================= -->
+        <Style x:Key="DangerAccentButtonStyle" TargetType="Button" BasedOn="{StaticResource AccentButtonStyle}">
+            <Setter Property="Background" Value="{StaticResource DangerBrush}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{StaticResource DangerLight}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{StaticResource DangerBrush}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>

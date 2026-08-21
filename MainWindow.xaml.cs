@@ -923,6 +923,7 @@ public partial class MainWindow : Window
     {
         bool hasSel = start >= 0 && end > start;
         CropButton.IsEnabled = hasSel;
+        DirectCropButton.IsEnabled = hasSel;
         // 重新选择选区 = 重置播放：无论播放中还是暂停中，都立即停止并清空，不等上一次播放结束
         if (_player.CurrentPath is not null)
         {
@@ -967,6 +968,88 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             MessageBox.Show(this, "裁剪失败：\n" + ex.Message, "voboX");
+        }
+    }
+
+    /// <summary>
+    /// 直接裁剪：不弹保存对话框，直接保存到当前文件夹；
+    /// 然后删除原文件（voboX 内物理文件）或移除索引（外部索引，源文件保留），并弹出重命名。
+    /// 重命名对话框取消 = 不做任何操作（不会删原文件）。
+    /// </summary>
+    private void DirectCropButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_current is null) return;
+        if (Waveform.SelectionStart < 0 || Waveform.SelectionEnd <= Waveform.SelectionStart)
+        {
+            MessageBox.Show(this, "请先在波形图上拖动选择要裁剪的范围。", "voboX");
+            return;
+        }
+
+        var targetDir = _currentFolder; // 目标目录 = 当前所在文件夹（原地保存）
+
+        // 先弹重命名（取消则什么都不做，安全）：默认沿用原名 = 原地替换
+        var dlg = new InputDialog("直接裁剪",
+            $"裁剪后将删除原文件/移除索引。\n当前名称：{_current.DisplayName}\n输入新名称（自动补 .wav）：",
+            Path.GetFileNameWithoutExtension(_current.DisplayName))
+        { Owner = this };
+        if (dlg.ShowDialog() != true) return;
+        var newName = dlg.Value.Trim();
+        if (newName.Length == 0) { MessageBox.Show(this, "名称不能为空。", "voboX"); return; }
+        if (newName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+        { MessageBox.Show(this, "名称包含非法字符。", "voboX"); return; }
+        var newDisplay = Path.GetExtension(newName).Equals(".wav", StringComparison.OrdinalIgnoreCase)
+            ? newName
+            : newName + ".wav";
+
+        var outputPath = Path.Combine(targetDir, newDisplay);
+        var origPath = _current.FilePath;
+
+        // 同名冲突检查（排除即将被删除/移除索引的原条目本身）
+        var conflict = FileList.Items.Cast<AudioItem>()
+            .Any(o => !o.FilePath.Equals(origPath, StringComparison.OrdinalIgnoreCase) &&
+                      o.DisplayName.Equals(newDisplay, StringComparison.OrdinalIgnoreCase));
+        if (conflict) { MessageBox.Show(this, $"已存在同名条目：{newDisplay}", "voboX"); return; }
+        if (File.Exists(outputPath) &&
+            !outputPath.Equals(origPath, StringComparison.OrdinalIgnoreCase))
+        {
+            MessageBox.Show(this, $"目标文件已存在：\n{outputPath}", "voboX");
+            return;
+        }
+
+        // 若正在播放该文件：先停止释放句柄，否则删除会因占用抛 IOException
+        if (_player.CurrentPath is string cur &&
+            cur.Equals(origPath, StringComparison.OrdinalIgnoreCase))
+        {
+            _player.Stop();
+            StopPlayingFlag();
+            UpdatePlayIcon();
+            Waveform.Playhead = 0;
+        }
+
+        // 先裁到本目录临时文件（输出可能覆盖原文件 → 不能边读边写原路径）
+        var tempPath = Path.Combine(targetDir, $".voboX_crop_{Guid.NewGuid():N}.tmp");
+        try
+        {
+            AudioCropService.Crop(origPath, Waveform.SelectionStart, Waveform.SelectionEnd, tempPath);
+
+            // 删除原文件：voboX 内物理文件直接删；外部索引只移除 log 登记行（源文件保留）
+            FolderService.RemoveEntry(targetDir, _current);
+
+            // 临时文件落位为最终文件（已确认无重名）
+            File.Move(tempPath, outputPath);
+
+            ReloadSamples();
+            var newItem = FileList.Items.Cast<AudioItem>()
+                .FirstOrDefault(i => i.FilePath.Equals(outputPath, StringComparison.OrdinalIgnoreCase));
+            if (newItem is not null)
+                FileList.SelectedItem = newItem;
+
+            MessageBox.Show(this, "直接裁剪完成：\n" + outputPath, "voboX");
+        }
+        catch (Exception ex)
+        {
+            try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { }
+            MessageBox.Show(this, "直接裁剪失败：\n" + ex.Message, "voboX");
         }
     }
 
