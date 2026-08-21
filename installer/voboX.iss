@@ -2,7 +2,7 @@
 ; 编译：ISCC.exe voboX.iss
 
 #define MyAppName "voboX"
-#define MyAppVersion "1.0.1"
+#define MyAppVersion "1.0.2"
 #define MyAppPublisher "voboX"
 #define MyAppExeName "voboX.exe"
 
